@@ -1,0 +1,822 @@
+:root {
+  --grund: #f5f6f8;
+  --flaeche: #ffffff;
+  --linie: #dfe3ea;
+  --text: #1b2430;
+  --text-leise: #64707f;
+  --akzent: #1f5fa9;
+  --akzent-hell: #eaf1fa;
+  --gruen: #1c7a4a;
+  --gruen-hell: #e7f5ee;
+  --rot: #b3261e;
+  --rot-hell: #fdecea;
+  --gelb: #8a5a00;
+  --gelb-hell: #fdf4e3;
+  --radius: 8px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--grund);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  margin: 0 0 0.4rem;
+  line-height: 1.25;
+}
+
+h2 {
+  font-size: 1.15rem;
+}
+
+h3 {
+  font-size: 1rem;
+  margin-top: 1.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--linie);
+}
+
+h4 {
+  font-size: 0.9rem;
+  margin-top: 1.2rem;
+  color: var(--text-leise);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.app {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem 4rem;
+}
+
+/* --- Kopfzeile ----------------------------------------------------------- */
+
+.kopfzeile {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid var(--linie);
+}
+
+.kopfzeile h1 {
+  font-size: 1.55rem;
+}
+
+.kopfzeile p {
+  margin: 0;
+  color: var(--text-leise);
+  font-size: 0.9rem;
+}
+
+.kopf-aktionen {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.reiter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 1rem 0 1.25rem;
+}
+
+.reiter-knopf {
+  border: 1px solid var(--linie);
+  background: var(--flaeche);
+  color: var(--text-leise);
+  padding: 0.5rem 0.85rem;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.88rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.reiter-knopf:hover {
+  border-color: var(--akzent);
+  color: var(--akzent);
+}
+
+.reiter-knopf.aktiv {
+  background: var(--akzent);
+  border-color: var(--akzent);
+  color: #fff;
+  font-weight: 600;
+}
+
+.abzeichen {
+  background: var(--rot);
+  color: #fff;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  padding: 0 0.4rem;
+  line-height: 1.4;
+}
+
+.meldung {
+  background: var(--akzent-hell);
+  border: 1px solid var(--akzent);
+  color: var(--akzent);
+  padding: 0.6rem 0.9rem;
+  border-radius: var(--radius);
+  margin-bottom: 1rem;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+}
+
+/* --- Karten -------------------------------------------------------------- */
+
+.karte {
+  background: var(--flaeche);
+  border: 1px solid var(--linie);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.karte-kopf {
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.beschreibung {
+  color: var(--text-leise);
+  font-size: 0.88rem;
+  margin: 0.25rem 0 0;
+}
+
+.leer {
+  color: var(--text-leise);
+  font-style: italic;
+  padding: 0.75rem 0;
+  margin: 0;
+}
+
+/* --- Formular ------------------------------------------------------------ */
+
+.raster {
+  display: grid;
+  gap: 0.85rem;
+  margin-bottom: 0.5rem;
+}
+
+.zeile {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: flex-end;
+}
+
+.zeile > .feld {
+  flex: 1 1 130px;
+}
+
+.zeile-abschluss {
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--linie);
+}
+
+.feld {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.feld-breit {
+  grid-column: 1 / -1;
+}
+
+.feld-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-leise);
+}
+
+.feld-hinweis {
+  font-size: 0.75rem;
+  color: var(--text-leise);
+  display: block;
+}
+
+input,
+select,
+textarea {
+  font: inherit;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid var(--linie);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--text);
+  width: 100%;
+  min-width: 0;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: 2px solid var(--akzent);
+  outline-offset: -1px;
+  border-color: var(--akzent);
+}
+
+textarea {
+  resize: vertical;
+}
+
+.eingabe-mit-einheit {
+  display: flex;
+  align-items: stretch;
+}
+
+.eingabe-mit-einheit input {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  text-align: right;
+}
+
+.eingabe-mit-einheit .einheit {
+  border: 1px solid var(--linie);
+  border-left: none;
+  border-radius: 0 6px 6px 0;
+  background: var(--grund);
+  color: var(--text-leise);
+  padding: 0.45rem 0.55rem;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+}
+
+.schalter {
+  display: flex;
+  gap: 0.55rem;
+  align-items: flex-start;
+  font-size: 0.9rem;
+  padding: 0.3rem 0;
+  cursor: pointer;
+}
+
+.schalter input {
+  width: auto;
+  margin-top: 0.25rem;
+  flex: 0 0 auto;
+}
+
+.schalter-gruppe {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.knopf {
+  font: inherit;
+  font-size: 0.87rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: 6px;
+  border: 1px solid var(--linie);
+  background: var(--flaeche);
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.knopf:hover {
+  border-color: var(--akzent);
+  color: var(--akzent);
+}
+
+.knopf-primaer {
+  background: var(--akzent);
+  border-color: var(--akzent);
+  color: #fff;
+}
+
+.knopf-primaer:hover {
+  background: #17497f;
+  color: #fff;
+}
+
+.knopf-gefahr {
+  color: var(--rot);
+  border-color: #f0c4c1;
+}
+
+.knopf-gefahr:hover {
+  background: var(--rot-hell);
+  border-color: var(--rot);
+  color: var(--rot);
+}
+
+.knopf-leise {
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-leise);
+  padding: 0.45rem 0.5rem;
+}
+
+/* --- Listen -------------------------------------------------------------- */
+
+.liste {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.listeneintrag {
+  border: 1px solid var(--linie);
+  border-radius: var(--radius);
+  padding: 0.9rem;
+  background: #fcfcfd;
+}
+
+.listeneintrag.aktiv {
+  border-color: var(--akzent);
+  box-shadow: 0 0 0 2px var(--akzent-hell);
+}
+
+.eintrag-titel {
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.untertabelle {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.6rem;
+  background: var(--grund);
+  border-radius: 6px;
+}
+
+.marke {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: var(--akzent-hell);
+  color: var(--akzent);
+  white-space: nowrap;
+}
+
+.marke-leise {
+  background: var(--grund);
+  color: var(--text-leise);
+  font-weight: 500;
+}
+
+.marke-gruen {
+  background: var(--gruen-hell);
+  color: var(--gruen);
+}
+
+.marke-rot {
+  background: var(--rot-hell);
+  color: var(--rot);
+}
+
+.marke-aktiv {
+  background: var(--akzent);
+  color: #fff;
+}
+
+/* --- Kennzahlen ---------------------------------------------------------- */
+
+.kennzahlen {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+
+.kennzahl {
+  border: 1px solid var(--linie);
+  border-radius: var(--radius);
+  padding: 0.75rem 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  background: var(--flaeche);
+}
+
+.kennzahl span {
+  font-size: 0.78rem;
+  color: var(--text-leise);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.kennzahl strong {
+  font-size: 1.3rem;
+}
+
+.kennzahl small {
+  font-size: 0.76rem;
+  color: var(--text-leise);
+}
+
+.kennzahl-gruen {
+  border-color: #bde0cd;
+  background: var(--gruen-hell);
+}
+
+.kennzahl-gruen strong {
+  color: var(--gruen);
+}
+
+.kennzahl-rot {
+  border-color: #f0c4c1;
+  background: var(--rot-hell);
+}
+
+.kennzahl-rot strong {
+  color: var(--rot);
+}
+
+/* --- Hinweisboxen -------------------------------------------------------- */
+
+.hinweisbox {
+  border-radius: var(--radius);
+  padding: 0.7rem 0.9rem;
+  margin: 0.85rem 0;
+  font-size: 0.88rem;
+  border: 1px solid;
+}
+
+.hinweisbox strong {
+  display: block;
+  margin-bottom: 0.15rem;
+}
+
+.hinweisbox-info {
+  background: var(--akzent-hell);
+  border-color: #c3d8f0;
+  color: #15406f;
+}
+
+.hinweisbox-warnung {
+  background: var(--gelb-hell);
+  border-color: #e8cd93;
+  color: var(--gelb);
+}
+
+.hinweisbox-fehler {
+  background: var(--rot-hell);
+  border-color: #f0c4c1;
+  color: var(--rot);
+}
+
+.hinweisbox-erfolg {
+  background: var(--gruen-hell);
+  border-color: #bde0cd;
+  color: var(--gruen);
+}
+
+/* --- Befunde ------------------------------------------------------------- */
+
+.befunde {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.befund {
+  display: flex;
+  gap: 0.7rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--linie);
+  background: #fcfcfd;
+}
+
+.befund p {
+  margin: 0.2rem 0 0;
+  font-size: 0.88rem;
+  color: var(--text-leise);
+}
+
+.befund-meta {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  margin-top: 0.4rem !important;
+}
+
+.befund-symbol {
+  flex: 0 0 1.4rem;
+  height: 1.4rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.befund-fehler {
+  border-color: #f0c4c1;
+  background: var(--rot-hell);
+}
+
+.befund-fehler .befund-symbol {
+  background: var(--rot);
+}
+
+.befund-warnung {
+  border-color: #e8cd93;
+  background: var(--gelb-hell);
+}
+
+.befund-warnung .befund-symbol {
+  background: var(--gelb);
+}
+
+.befund-hinweis .befund-symbol {
+  background: var(--akzent);
+}
+
+/* --- Tabellen ------------------------------------------------------------ */
+
+.tabelle,
+.bogen-tabelle,
+.bogen-ergebnis,
+.bogen-stammdaten {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.87rem;
+  margin: 0.5rem 0 1rem;
+}
+
+.tabelle td,
+.bogen-tabelle td,
+.bogen-tabelle th,
+.bogen-ergebnis td {
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid var(--linie);
+  vertical-align: top;
+  text-align: left;
+}
+
+.bogen-tabelle th {
+  background: var(--grund);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-leise);
+  border-bottom: 2px solid var(--linie);
+}
+
+.rechts {
+  text-align: right !important;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+tr.summe {
+  font-weight: 700;
+  background: var(--grund);
+}
+
+tr.saldo {
+  font-weight: 700;
+  font-size: 1.05rem;
+  background: var(--akzent-hell);
+}
+
+tr.saldo td {
+  border-top: 2px solid var(--akzent);
+  border-bottom: 2px solid var(--akzent);
+}
+
+.klein {
+  font-size: 0.8rem;
+  color: var(--text-leise);
+}
+
+/* --- Abrechnungsbogen ---------------------------------------------------- */
+
+.druckbereich {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.bogen {
+  background: #fff;
+  border: 1px solid var(--linie);
+  border-radius: var(--radius);
+  padding: 2.2rem 2.4rem;
+  font-size: 0.92rem;
+}
+
+.bogen-kopf {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.85rem;
+  border-bottom: 1px solid var(--linie);
+  padding-bottom: 0.8rem;
+}
+
+.absender strong {
+  display: block;
+  font-size: 1rem;
+}
+
+.datum {
+  color: var(--text-leise);
+  white-space: nowrap;
+}
+
+.empfaenger {
+  margin: 2rem 0;
+  line-height: 1.45;
+}
+
+.bogen-titel {
+  font-size: 1.15rem;
+  margin: 1.5rem 0 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid var(--text);
+}
+
+.bogen-stammdaten th {
+  text-align: left;
+  width: 14rem;
+  color: var(--text-leise);
+  font-weight: 600;
+  padding: 0.3rem 0.5rem 0.3rem 0;
+  vertical-align: top;
+  font-size: 0.85rem;
+}
+
+.bogen-stammdaten td {
+  padding: 0.3rem 0;
+  border: none;
+}
+
+.bogen-text {
+  margin: 0.7rem 0;
+  line-height: 1.55;
+}
+
+.bogen h2 {
+  margin-top: 1.8rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid var(--linie);
+  font-size: 1.02rem;
+}
+
+.bogen-liste {
+  margin: 0.5rem 0 1rem;
+  padding-left: 1.1rem;
+  line-height: 1.5;
+}
+
+.bogen-liste li {
+  margin-bottom: 0.45rem;
+}
+
+.bogen-ergebnis {
+  max-width: 34rem;
+}
+
+.unterschrift {
+  margin-top: 2.5rem;
+}
+
+.unterschrift-linie {
+  width: 14rem;
+  border-bottom: 1px solid var(--text);
+  margin: 2.5rem 0 0.3rem;
+}
+
+.unterschrift p {
+  margin: 0.2rem 0;
+}
+
+.seitenumbruch {
+  height: 0;
+}
+
+/* --- Fußzeile ------------------------------------------------------------ */
+
+.fusszeile {
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--linie);
+  font-size: 0.82rem;
+  color: var(--text-leise);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: space-between;
+}
+
+/* --- Druck --------------------------------------------------------------- */
+
+@media print {
+  @page {
+    size: A4;
+    margin: 18mm 16mm;
+  }
+
+  body {
+    background: #fff;
+    font-size: 10.5pt;
+  }
+
+  .app {
+    max-width: none;
+    padding: 0;
+  }
+
+  .kopfzeile,
+  .reiter,
+  .fusszeile,
+  .meldung,
+  .karte {
+    display: none !important;
+  }
+
+  .druckbereich {
+    display: block;
+  }
+
+  .bogen {
+    border: none;
+    border-radius: 0;
+    padding: 0;
+    page-break-after: always;
+  }
+
+  .bogen:last-child {
+    page-break-after: auto;
+  }
+
+  .seitenumbruch {
+    page-break-before: always;
+  }
+
+  .bogen h2,
+  .bogen-titel {
+    page-break-after: avoid;
+  }
+
+  table {
+    page-break-inside: avoid;
+  }
+
+  tr {
+    page-break-inside: avoid;
+  }
+}
+
+@media (max-width: 780px) {
+  .raster {
+    grid-template-columns: 1fr !important;
+  }
+
+  .bogen {
+    padding: 1.2rem;
+  }
+
+  .bogen-tabelle {
+    display: block;
+    overflow-x: auto;
+  }
+}
