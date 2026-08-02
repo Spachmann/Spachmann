@@ -1,0 +1,146 @@
+/* ============================================================================
+   Abrechnungsdokument – Bildschirmvorschau im A4-Format und Druckausgabe.
+   Auf dem iPad erzeugt „Teilen → Drucken → mit zwei Fingern aufziehen → In
+   Dateien sichern" hieraus eine PDF-Datei.
+   ========================================================================= */
+
+.dokument-buehne {
+  background: #6f7580;
+  padding: 20px;
+  border-radius: var(--radius);
+  overflow-x: auto;
+}
+
+.blatt {
+  width: 210mm;
+  min-height: 297mm;
+  margin: 0 auto 20px;
+  padding: 18mm 18mm 16mm;
+  background: #fff;
+  color: #000;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 10.2pt;
+  line-height: 1.42;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, .3);
+  position: relative;
+}
+
+.blatt * { box-sizing: border-box; }
+
+.blatt h1 { font-size: 15pt; margin: 0 0 3mm; letter-spacing: -.01em; }
+.blatt h2 {
+  font-size: 11pt; margin: 7mm 0 2.5mm; padding-bottom: 1.2mm;
+  border-bottom: 1px solid #000;
+}
+.blatt h3 { font-size: 10pt; margin: 4mm 0 1.5mm; }
+.blatt p { margin: 0 0 2mm; }
+
+.dok-absender { font-size: 7.5pt; color: #333; border-bottom: .4pt solid #999; padding-bottom: 1mm; margin-bottom: 3mm; }
+
+.dok-kopf { display: flex; gap: 10mm; margin-bottom: 8mm; }
+.dok-anschrift { width: 85mm; min-height: 32mm; }
+.dok-anschrift .zeile { display: block; }
+.dok-meta { margin-left: auto; font-size: 9pt; text-align: right; }
+.dok-meta .zeile { display: flex; gap: 4mm; justify-content: flex-end; }
+.dok-meta .zeile span:first-child { color: #444; }
+
+.dok-objekt {
+  background: #f2f3f5; border: .4pt solid #b8bcc2;
+  padding: 3mm 4mm; margin-bottom: 5mm; font-size: 9.2pt;
+}
+.dok-objekt dl { display: grid; grid-template-columns: 38mm 1fr; gap: .8mm 3mm; margin: 0; }
+.dok-objekt dt { color: #444; }
+.dok-objekt dd { margin: 0; font-weight: 600; }
+
+table.dok {
+  width: 100%; border-collapse: collapse; font-size: 8.8pt; margin-bottom: 3mm;
+  overflow-wrap: break-word;
+}
+/* Feste Spaltenbreiten, damit die Betragsspalte nie aus dem Satzspiegel läuft. */
+table.dok.fest { table-layout: fixed; }
+table.dok th {
+  text-align: left; font-weight: 700; font-size: 6.9pt;
+  text-transform: uppercase; letter-spacing: .01em; line-height: 1.25;
+  border-bottom: .8pt solid #000; padding: 1.6mm 2mm; vertical-align: bottom;
+}
+/* Kopfzellen dürfen umbrechen, aber nie mitten im Wort. */
+table.dok.fest th { overflow-wrap: normal; }
+table.dok td { padding: 1.5mm 1.6mm; border-bottom: .3pt solid #ccc; vertical-align: top; }
+table.dok td.z { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* Kopfzellen brechen um, statt in die Nachbarspalte zu laufen. */
+table.dok th.z { text-align: right; white-space: normal; }
+table.dok tr.summe td { font-weight: 700; border-top: .8pt solid #000; border-bottom: 0; padding-top: 2mm; }
+table.dok tr.zwischensumme td { font-weight: 600; border-top: .4pt solid #666; background: #f6f7f8; }
+table.dok .klein { font-size: 7.4pt; color: #444; display: block; margin-top: .5mm; }
+
+.dok-saldo {
+  border: 1.2pt solid #000; padding: 4mm; margin: 5mm 0;
+}
+.dok-saldo table { width: 100%; border-collapse: collapse; font-size: 9.6pt; }
+.dok-saldo td { padding: 1.4mm 0; }
+.dok-saldo td.z { text-align: right; font-variant-numeric: tabular-nums; }
+.dok-saldo tr.ergebnis td { font-size: 12pt; font-weight: 700; border-top: 1pt solid #000; padding-top: 2.5mm; }
+
+.dok-kasten { border: .5pt solid #999; padding: 3mm 4mm; margin: 4mm 0; font-size: 8.6pt; background: #fafafa; }
+.dok-kasten h3 { margin-top: 0; }
+.dok-kasten ul { margin: 0; padding-left: 4.5mm; }
+.dok-kasten li { margin-bottom: 1.2mm; }
+
+.dok-fuss {
+  margin-top: 6mm; padding-top: 2.5mm; border-top: .4pt solid #999;
+  font-size: 7.4pt; color: #444; line-height: 1.4;
+}
+
+.dok-unterschrift { margin-top: 10mm; font-size: 9pt; }
+.dok-unterschrift .linie { border-bottom: .5pt solid #000; width: 70mm; margin-top: 12mm; padding-bottom: 1mm; }
+
+.seitenumbruch { break-after: page; page-break-after: always; }
+
+/* --------------------------------------------------------------- Druck */
+
+@page {
+  size: A4 portrait;
+  margin: 0;
+}
+
+@media print {
+  html, body { background: #fff !important; margin: 0; padding: 0; }
+
+  /* Nur das Dokument drucken – Navigation und Bedienelemente entfallen. */
+  .seitenleiste, .seiten-kopf, .kopf-aktionen, .btn, .wolke, .nicht-drucken { display: none !important; }
+  #app { display: block !important; }
+  .inhalt { padding: 0 !important; max-width: none !important; }
+
+  .dokument-buehne { background: #fff !important; padding: 0 !important; border-radius: 0 !important; overflow: visible !important; }
+  .blatt {
+    width: auto; min-height: 0; margin: 0; box-shadow: none;
+    padding: 16mm 16mm 14mm;
+  }
+  .blatt + .blatt { break-before: page; page-break-before: always; }
+
+  table.dok { break-inside: auto; }
+  table.dok tr { break-inside: avoid; page-break-inside: avoid; }
+  table.dok thead { display: table-header-group; }
+  .dok-saldo, .dok-kasten, .dok-objekt { break-inside: avoid; page-break-inside: avoid; }
+  h2 { break-after: avoid; page-break-after: avoid; }
+
+  .druck-nur { display: block !important; }
+}
+
+/* Vorschau: das A4-Blatt ist 210 mm breit und passt sonst nicht neben die
+   Navigation. Verkleinert wird nur die Bildschirmdarstellung – der Ausdruck
+   bleibt maßstabsgetreu. */
+@media screen and (max-width: 1340px) {
+  .dokument-buehne .blatt { zoom: .82; }
+}
+@media screen and (max-width: 1100px) {
+  .dokument-buehne { padding: 12px; }
+  .dokument-buehne .blatt { zoom: .68; }
+}
+@media screen and (max-width: 820px) {
+  .dokument-buehne { padding: 8px; }
+  .dokument-buehne .blatt { zoom: .52; }
+}
+@media print {
+  .dokument-buehne .blatt { zoom: 1 !important; }
+}

@@ -1,0 +1,12 @@
+{
+  "name": "nebenkosten-app",
+  "version": "1.0.0",
+  "description": "iPad-App (PWA) zur Erfassung von Betriebskosten und Erstellung rechtskonformer Nebenkostenabrechnungen nach BGB, BetrKV, HeizkostenV und CO2KostAufG",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "node --test \"tests/*.test.js\"",
+    "start": "node tools/serve.js"
+  },
+  "license": "MIT"
+}
