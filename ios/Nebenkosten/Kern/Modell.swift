@@ -2,12 +2,22 @@ import Foundation
 
 /// Datenmodell.
 ///
-/// Die Feldnamen entsprechen exakt dem Sicherungsformat der Web-App, sodass
+/// Aufbau:
+///   Vermieter  →  Objekte  →  Einheiten  →  Mietverhältnisse
+///                     ↳  Abrechnungszeiträume (Kosten, Verbräuche, Heizung)
+///
+/// Ein Vermieter kann mehrere Objekte halten – etwa zwei privat vermietete
+/// Immobilien und daneben eine GbR mit weiteren Objekten. Abgerechnet wird
+/// immer je Objekt; die Rechenkerne arbeiten auf dem Ausschnitt, den
+/// `Datenbestand.bestand(fuerObjekt:)` liefert.
+///
+/// Die Feldnamen entsprechen dem Sicherungsformat der Web-App, sodass
 /// Sicherungen zwischen beiden Fassungen ausgetauscht werden können. Alle
-/// Strukturen dekodieren fehlende Felder auf ihren Standardwert, damit auch
-/// ältere oder unvollständige Sicherungen gelesen werden können.
+/// Strukturen lesen fehlende Felder als Standardwert; Sicherungen der
+/// Fassung 1 mit genau einem Vermieter und Objekt werden beim Laden
+/// umgewandelt.
 enum Modell {
-    static let version = 1
+    static let version = 2
 
     static func neueKennung(_ praefix: String) -> String {
         "\(praefix)_\(UUID().uuidString.prefix(12).lowercased())"
@@ -22,6 +32,37 @@ private extension KeyedDecodingContainer {
 }
 
 // MARK: - Aufzählungen
+
+/// Rechtsform des Vermieters. Gesellschaften handeln nur durch ihre Vertreter;
+/// das muss die Abrechnung erkennen lassen.
+enum Rechtsform: String, Codable, CaseIterable, Identifiable {
+    case privat
+    case ehepaar
+    case gbr
+    case weg
+    case gmbh
+    case sonstige
+
+    var id: String { rawValue }
+
+    var bezeichnung: String {
+        switch self {
+        case .privat: return "Privatperson"
+        case .ehepaar: return "Eheleute / Gemeinschaft"
+        case .gbr: return "GbR"
+        case .weg: return "Wohnungseigentümergemeinschaft"
+        case .gmbh: return "GmbH / UG"
+        case .sonstige: return "Sonstige"
+        }
+    }
+
+    var vertretungNoetig: Bool {
+        switch self {
+        case .privat, .ehepaar: return false
+        case .gbr, .weg, .gmbh, .sonstige: return true
+        }
+    }
+}
 
 enum Vorauszahlungsmodus: String, Codable, CaseIterable, Identifiable {
     case monatlich
@@ -80,10 +121,13 @@ enum Verbrauchsart: String, Codable, CaseIterable, Identifiable {
     var spaltentitel: String { "\(bezeichnung) (\(einheit))" }
 }
 
-// MARK: - Stammdaten
+// MARK: - Vermieter
 
-struct Vermieter: Codable, Hashable {
+struct Vermieter: Codable, Hashable, Identifiable {
+    var id = Modell.neueKennung("v")
     var name = ""
+    var rechtsform: Rechtsform = .privat
+    var vertretenDurch = ""
     var strasse = ""
     var plz = ""
     var ort = ""
@@ -93,15 +137,20 @@ struct Vermieter: Codable, Hashable {
     var bank = ""
     var steuernummer = ""
 
-    init() {}
+    init(name: String = "") {
+        self.name = name
+    }
 
     enum CodingKeys: String, CodingKey {
-        case name, strasse, plz, ort, telefon, email, iban, bank, steuernummer
+        case id, name, rechtsform, vertretenDurch, strasse, plz, ort, telefon, email, iban, bank, steuernummer
     }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = c.wert(.id, Modell.neueKennung("v"))
         name = c.wert(.name, "")
+        rechtsform = c.wert(.rechtsform, .privat)
+        vertretenDurch = c.wert(.vertretenDurch, "")
         strasse = c.wert(.strasse, "")
         plz = c.wert(.plz, "")
         ort = c.wert(.ort, "")
@@ -112,14 +161,23 @@ struct Vermieter: Codable, Hashable {
         steuernummer = c.wert(.steuernummer, "")
     }
 
+    /// Name, bei Gesellschaften ergänzt um die vertretungsberechtigten Personen.
+    var anzeigename: String {
+        vertretenDurch.isEmpty ? name : "\(name), vertreten durch \(vertretenDurch)"
+    }
+
     var anschriftszeile: String {
-        [name, strasse, [plz, ort].filter { !$0.isEmpty }.joined(separator: " ")]
+        [anzeigename, strasse, [plz, ort].filter { !$0.isEmpty }.joined(separator: " ")]
             .filter { !$0.isEmpty }
             .joined(separator: " · ")
     }
 }
 
-struct Objekt: Codable, Hashable {
+// MARK: - Objekt
+
+struct Objekt: Codable, Hashable, Identifiable {
+    var id = Modell.neueKennung("o")
+    var vermieterId = ""
     var bezeichnung = ""
     var strasse = ""
     var plz = ""
@@ -128,15 +186,22 @@ struct Objekt: Codable, Hashable {
     var gebaeudetyp: Gebaeudetyp = .wohn
     var leerstandPersonen: Double = 1
     var verbrauchsdifferenz: Verbrauchsdifferenz = .verbrauch
+    var notiz = ""
 
-    init() {}
+    init(vermieterId: String = "", bezeichnung: String = "") {
+        self.vermieterId = vermieterId
+        self.bezeichnung = bezeichnung
+    }
 
     enum CodingKeys: String, CodingKey {
-        case bezeichnung, strasse, plz, ort, wohnflaecheGesamt, gebaeudetyp, leerstandPersonen, verbrauchsdifferenz
+        case id, vermieterId, bezeichnung, strasse, plz, ort, wohnflaecheGesamt
+        case gebaeudetyp, leerstandPersonen, verbrauchsdifferenz, notiz
     }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = c.wert(.id, Modell.neueKennung("o"))
+        vermieterId = c.wert(.vermieterId, "")
         bezeichnung = c.wert(.bezeichnung, "")
         strasse = c.wert(.strasse, "")
         plz = c.wert(.plz, "")
@@ -145,6 +210,7 @@ struct Objekt: Codable, Hashable {
         gebaeudetyp = c.wert(.gebaeudetyp, .wohn)
         leerstandPersonen = c.wert(.leerstandPersonen, 1)
         verbrauchsdifferenz = c.wert(.verbrauchsdifferenz, .verbrauch)
+        notiz = c.wert(.notiz, "")
     }
 
     var anschrift: String {
@@ -152,27 +218,38 @@ struct Objekt: Codable, Hashable {
             .filter { !$0.isEmpty }
             .joined(separator: ", ")
     }
+
+    var anzeigename: String {
+        if !bezeichnung.isEmpty { return bezeichnung }
+        if !strasse.isEmpty { return strasse }
+        return "Objekt"
+    }
 }
+
+// MARK: - Einheit und Mietverhältnis
 
 struct Einheit: Codable, Hashable, Identifiable {
     var id = Modell.neueKennung("e")
+    var objektId = ""
     var bezeichnung = ""
     var lage = ""
     var wohnflaeche: Double = 0
     var mea: Double = 0
     var notiz = ""
 
-    init(bezeichnung: String = "") {
+    init(objektId: String = "", bezeichnung: String = "") {
+        self.objektId = objektId
         self.bezeichnung = bezeichnung
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, bezeichnung, lage, wohnflaeche, mea, notiz
+        case id, objektId, bezeichnung, lage, wohnflaeche, mea, notiz
     }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = c.wert(.id, Modell.neueKennung("e"))
+        objektId = c.wert(.objektId, "")
         bezeichnung = c.wert(.bezeichnung, "")
         lage = c.wert(.lage, "")
         wohnflaeche = c.wert(.wohnflaeche, 0)
@@ -283,7 +360,6 @@ struct Position: Codable, Hashable, Identifiable {
 
     var art: Kostenartinfo? { Katalog.art(kostenartId) }
 
-    /// Anzeigename: eigene Bezeichnung, sonst die Bezeichnung der Kostenart.
     var anzeigename: String {
         bezeichnung.isEmpty ? (art?.bezeichnung ?? kostenartId) : bezeichnung
     }
@@ -472,6 +548,7 @@ struct Hauptzaehler: Codable, Hashable {
 
 struct Abrechnungszeitraum: Codable, Hashable, Identifiable {
     var id = Modell.neueKennung("a")
+    var objektId = ""
     var jahr = 2024
     var von = "2024-01-01"
     var bis = "2024-12-31"
@@ -483,14 +560,15 @@ struct Abrechnungszeitraum: Codable, Hashable, Identifiable {
     var hauptzaehler = Hauptzaehler()
     var heizung = Heizungseinstellungen()
 
-    init(jahr: Int) {
+    init(objektId: String, jahr: Int) {
+        self.objektId = objektId
         self.jahr = jahr
         self.von = String(format: "%04d-01-01", jahr)
         self.bis = String(format: "%04d-12-31", jahr)
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, jahr, von, bis, erstelltAm, zugestelltAm, zahlungsfristTage
+        case id, objektId, jahr, von, bis, erstelltAm, zugestelltAm, zahlungsfristTage
         case positionen, verbraeuche, hauptzaehler, heizung
     }
 
@@ -498,6 +576,7 @@ struct Abrechnungszeitraum: Codable, Hashable, Identifiable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let standardJahr = c.wert(.jahr, 2024)
         id = c.wert(.id, Modell.neueKennung("a"))
+        objektId = c.wert(.objektId, "")
         jahr = standardJahr
         von = c.wert(.von, String(format: "%04d-01-01", standardJahr))
         bis = c.wert(.bis, String(format: "%04d-12-31", standardJahr))
@@ -532,33 +611,23 @@ struct Abrechnungszeitraum: Codable, Hashable, Identifiable {
     }
 }
 
-// MARK: - Gesamtbestand
+// MARK: - Ausschnitt für ein Objekt
 
-struct Datenbestand: Codable, Hashable {
-    var version = Modell.version
-    var vermieter = Vermieter()
-    var objekt = Objekt()
-    var einheiten: [Einheit] = []
-    var mietverhaeltnisse: [Mietverhaeltnis] = []
-    var abrechnungen: [Abrechnungszeitraum] = []
-
-    init() {}
-
-    enum CodingKeys: String, CodingKey {
-        case version, vermieter, objekt, einheiten, mietverhaeltnisse, abrechnungen
-    }
-
-    init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        version = c.wert(.version, Modell.version)
-        vermieter = c.wert(.vermieter, Vermieter())
-        objekt = c.wert(.objekt, Objekt())
-        einheiten = c.wert(.einheiten, [])
-        mietverhaeltnisse = c.wert(.mietverhaeltnisse, [])
-        abrechnungen = c.wert(.abrechnungen, [])
-    }
+/// Der auf ein Objekt zugeschnittene Bestand.
+///
+/// Abrechnung, Prüfung und Dokumenterzeugung arbeiten ausschließlich hierauf
+/// und bleiben dadurch frei von Mehrobjektlogik.
+struct Objektbestand {
+    var vermieter: Vermieter
+    var objekt: Objekt
+    var einheiten: [Einheit]
+    var mietverhaeltnisse: [Mietverhaeltnis]
 
     func einheit(_ id: String) -> Einheit? { einheiten.first { $0.id == id } }
+
+    func mietverhaeltnisseZu(einheitId: String) -> [Mietverhaeltnis] {
+        mietverhaeltnisse.filter { $0.einheitId == einheitId }
+    }
 
     var summeWohnflaechen: Double { einheiten.map(\.wohnflaeche).summe }
 
@@ -566,8 +635,110 @@ struct Datenbestand: Codable, Hashable {
     var massgeblicheWohnflaeche: Double {
         objekt.wohnflaecheGesamt > 0 ? objekt.wohnflaecheGesamt : summeWohnflaechen
     }
+}
 
-    func mietverhaeltnisseZu(einheitId: String) -> [Mietverhaeltnis] {
-        mietverhaeltnisse.filter { $0.einheitId == einheitId }
+// MARK: - Gesamtbestand
+
+struct Datenbestand: Codable, Hashable {
+    var version = Modell.version
+    var vermieter: [Vermieter] = []
+    var objekte: [Objekt] = []
+    var einheiten: [Einheit] = []
+    var mietverhaeltnisse: [Mietverhaeltnis] = []
+    var abrechnungen: [Abrechnungszeitraum] = []
+
+    init() {}
+
+    enum CodingKeys: String, CodingKey {
+        case version, vermieter, objekte, objekt, einheiten, mietverhaeltnisse, abrechnungen
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        version = c.wert(.version, Modell.version)
+        einheiten = c.wert(.einheiten, [])
+        mietverhaeltnisse = c.wert(.mietverhaeltnisse, [])
+        abrechnungen = c.wert(.abrechnungen, [])
+
+        // Fassung 2 führt Vermieter und Objekte als Listen …
+        if let liste = ((try? c.decodeIfPresent([Vermieter].self, forKey: .vermieter)) ?? nil) {
+            vermieter = liste
+            objekte = c.wert(.objekte, [])
+        } else if let einzeln = ((try? c.decodeIfPresent(Vermieter.self, forKey: .vermieter)) ?? nil) {
+            // … Fassung 1 kannte je genau einen Eintrag.
+            vermieter = [einzeln]
+            var objekt = ((try? c.decodeIfPresent(Objekt.self, forKey: .objekt)) ?? nil) ?? Objekt()
+            objekt.vermieterId = einzeln.id
+            objekte = [objekt]
+        } else {
+            vermieter = []
+            objekte = c.wert(.objekte, [])
+        }
+
+        ordneZu()
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(version, forKey: .version)
+        try c.encode(vermieter, forKey: .vermieter)
+        try c.encode(objekte, forKey: .objekte)
+        try c.encode(einheiten, forKey: .einheiten)
+        try c.encode(mietverhaeltnisse, forKey: .mietverhaeltnisse)
+        try c.encode(abrechnungen, forKey: .abrechnungen)
+    }
+
+    /// Hängt Objekte, Einheiten und Abrechnungen an gültige Elternobjekte.
+    /// Damit bleiben auch unvollständige oder ältere Sicherungen benutzbar.
+    private mutating func ordneZu() {
+        version = Modell.version
+        guard let erstesObjekt = objekte.first?.id else { return }
+        let vermieterIds = Set(vermieter.map(\.id))
+        let objektIds = Set(objekte.map(\.id))
+
+        if let ersterVermieter = vermieter.first?.id {
+            for index in objekte.indices where !vermieterIds.contains(objekte[index].vermieterId) {
+                objekte[index].vermieterId = ersterVermieter
+            }
+        }
+        for index in einheiten.indices where !objektIds.contains(einheiten[index].objektId) {
+            einheiten[index].objektId = erstesObjekt
+        }
+        for index in abrechnungen.indices where !objektIds.contains(abrechnungen[index].objektId) {
+            abrechnungen[index].objektId = erstesObjekt
+        }
+    }
+
+    // MARK: Zugriff
+
+    func vermieterMit(id: String) -> Vermieter? { vermieter.first { $0.id == id } }
+    func objektMit(id: String) -> Objekt? { objekte.first { $0.id == id } }
+
+    func einheitenZu(objektId: String) -> [Einheit] {
+        einheiten.filter { $0.objektId == objektId }
+    }
+
+    func mietverhaeltnisseZu(objektId: String) -> [Mietverhaeltnis] {
+        let ids = Set(einheitenZu(objektId: objektId).map(\.id))
+        return mietverhaeltnisse.filter { ids.contains($0.einheitId) }
+    }
+
+    /// Abrechnungszeiträume eines Objekts, neueste zuerst.
+    func abrechnungenZu(objektId: String) -> [Abrechnungszeitraum] {
+        abrechnungen.filter { $0.objektId == objektId }.sorted { $0.jahr > $1.jahr }
+    }
+
+    func objekteZu(vermieterId: String) -> [Objekt] {
+        objekte.filter { $0.vermieterId == vermieterId }
+    }
+
+    /// Schneidet den Bestand auf ein Objekt zu.
+    func bestand(fuerObjekt objektId: String) -> Objektbestand? {
+        guard let objekt = objektMit(id: objektId) else { return nil }
+        return Objektbestand(
+            vermieter: vermieterMit(id: objekt.vermieterId) ?? Vermieter(),
+            objekt: objekt,
+            einheiten: einheitenZu(objektId: objektId),
+            mietverhaeltnisse: mietverhaeltnisseZu(objektId: objektId))
     }
 }

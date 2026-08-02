@@ -13,6 +13,7 @@ import { euro, zahl, summe } from './money.js';
 import { SCHLUESSEL, HEIZ_ARTEN, kostenart } from './katalog.js';
 import { verbrauchsanteilZulaessig } from './heizkosten.js';
 import { istUmlagefaehig } from './abrechnung.js';
+import { rechtsform } from './model.js';
 
 const FEHLER = 'fehler';
 const WARNUNG = 'warnung';
@@ -49,6 +50,16 @@ function pruefeStammdaten(daten, add) {
   }
   if (!v.strasse || !v.ort) {
     add(WARNUNG, 'Anschrift des Vermieters unvollständig', 'Der Mieter muss den Abrechnenden erreichen können, u. a. zur Ausübung des Belegeinsichtsrechts.', '§ 259 BGB');
+  }
+
+  const form = rechtsform(v.rechtsform);
+  if (form.vertretungNoetig && !v.vertretenDurch) {
+    add(
+      WARNUNG,
+      'Vertretung des Vermieters nicht angegeben',
+      `Vermieter ist eine ${form.bezeichnung}. Die Abrechnung sollte erkennen lassen, wer für sie handelt – trage die vertretungsberechtigten Personen unter „vertreten durch" ein. Bei einer GbR ist das besonders wichtig, weil sie nur durch ihre Gesellschafter auftreten kann.`,
+      '§ 259 BGB, § 709 BGB'
+    );
   }
   const o = daten.objekt || {};
   if (!o.strasse || !o.ort) {

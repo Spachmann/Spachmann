@@ -14,11 +14,12 @@
 		078301708F7259E81F9F2E45 /* HeizungAnsicht.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64A4173F20EDF8BCE7F46385 /* HeizungAnsicht.swift */; };
 		03DCDB3072846285B120E909 /* KostenAnsicht.swift in Sources */ = {isa = PBXBuildFile; fileRef = 533CE9BEBD11400C76DE1014 /* KostenAnsicht.swift */; };
 		15F46F6D31B26204A8D4893B /* MieterAnsicht.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22889BF9048D8C0A0EE4FCE0 /* MieterAnsicht.swift */; };
+		524184A9C3A00CA70C4A7763 /* ObjekteAnsicht.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA386C96A890F7236A0E9257 /* ObjekteAnsicht.swift */; };
 		5DFF1D7DB46201903B125C61 /* PruefungAnsicht.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FF684E450562F84DFCB1145 /* PruefungAnsicht.swift */; };
 		EED5A6561DAB0EEBAB8F2083 /* RootAnsicht.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80DB123E4D1CF773FA6A832B /* RootAnsicht.swift */; };
-		8ADE812668D3FCC11D3285FB /* StammdatenAnsicht.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA6575E8561E62AB34DA41C5 /* StammdatenAnsicht.swift */; };
 		C81D706EF8DF8AC359619E02 /* UebersichtAnsicht.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7B69B0ECCA7DBC9F98B0A3D /* UebersichtAnsicht.swift */; };
 		FC2D1F03B299747E4D4F200D /* VerbrauchAnsicht.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96AA0EE2BCFC27E85A98D50C /* VerbrauchAnsicht.swift */; };
+		FE8F9C94A2F7A62909E46D6E /* VermieterAnsicht.swift in Sources */ = {isa = PBXBuildFile; fileRef = A868779C72C1249AC8DD5BE0 /* VermieterAnsicht.swift */; };
 		F8D9DE6070C5B582523BB974 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = BF51472D213748EC02FF0EEA /* Assets.xcassets */; };
 		C44EAA1B4606F29600D54621 /* NebenkostenApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE14B5E87E8DB27D3BD465B9 /* NebenkostenApp.swift */; };
 		7D8EE05C6A2EEB5F96859E25 /* Datenspeicher.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD9A4201267E38AAEB718AF8 /* Datenspeicher.swift */; };
@@ -44,11 +45,12 @@
 		64A4173F20EDF8BCE7F46385 /* HeizungAnsicht.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeizungAnsicht.swift; sourceTree = "<group>"; };
 		533CE9BEBD11400C76DE1014 /* KostenAnsicht.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KostenAnsicht.swift; sourceTree = "<group>"; };
 		22889BF9048D8C0A0EE4FCE0 /* MieterAnsicht.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MieterAnsicht.swift; sourceTree = "<group>"; };
+		BA386C96A890F7236A0E9257 /* ObjekteAnsicht.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObjekteAnsicht.swift; sourceTree = "<group>"; };
 		3FF684E450562F84DFCB1145 /* PruefungAnsicht.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PruefungAnsicht.swift; sourceTree = "<group>"; };
 		80DB123E4D1CF773FA6A832B /* RootAnsicht.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootAnsicht.swift; sourceTree = "<group>"; };
-		CA6575E8561E62AB34DA41C5 /* StammdatenAnsicht.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StammdatenAnsicht.swift; sourceTree = "<group>"; };
 		E7B69B0ECCA7DBC9F98B0A3D /* UebersichtAnsicht.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UebersichtAnsicht.swift; sourceTree = "<group>"; };
 		96AA0EE2BCFC27E85A98D50C /* VerbrauchAnsicht.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VerbrauchAnsicht.swift; sourceTree = "<group>"; };
+		A868779C72C1249AC8DD5BE0 /* VermieterAnsicht.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VermieterAnsicht.swift; sourceTree = "<group>"; };
 		BF51472D213748EC02FF0EEA /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		FE14B5E87E8DB27D3BD465B9 /* NebenkostenApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NebenkostenApp.swift; sourceTree = "<group>"; };
 		DD9A4201267E38AAEB718AF8 /* Datenspeicher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Datenspeicher.swift; sourceTree = "<group>"; };
@@ -102,11 +104,12 @@
 				64A4173F20EDF8BCE7F46385 /* HeizungAnsicht.swift */,
 				533CE9BEBD11400C76DE1014 /* KostenAnsicht.swift */,
 				22889BF9048D8C0A0EE4FCE0 /* MieterAnsicht.swift */,
+				BA386C96A890F7236A0E9257 /* ObjekteAnsicht.swift */,
 				3FF684E450562F84DFCB1145 /* PruefungAnsicht.swift */,
 				80DB123E4D1CF773FA6A832B /* RootAnsicht.swift */,
-				CA6575E8561E62AB34DA41C5 /* StammdatenAnsicht.swift */,
 				E7B69B0ECCA7DBC9F98B0A3D /* UebersichtAnsicht.swift */,
 				96AA0EE2BCFC27E85A98D50C /* VerbrauchAnsicht.swift */,
+				A868779C72C1249AC8DD5BE0 /* VermieterAnsicht.swift */,
 			);
 			path = Ansichten;
 			sourceTree = "<group>";
@@ -234,11 +237,12 @@
 				078301708F7259E81F9F2E45 /* HeizungAnsicht.swift in Sources */,
 				03DCDB3072846285B120E909 /* KostenAnsicht.swift in Sources */,
 				15F46F6D31B26204A8D4893B /* MieterAnsicht.swift in Sources */,
+				524184A9C3A00CA70C4A7763 /* ObjekteAnsicht.swift in Sources */,
 				5DFF1D7DB46201903B125C61 /* PruefungAnsicht.swift in Sources */,
 				EED5A6561DAB0EEBAB8F2083 /* RootAnsicht.swift in Sources */,
-				8ADE812668D3FCC11D3285FB /* StammdatenAnsicht.swift in Sources */,
 				C81D706EF8DF8AC359619E02 /* UebersichtAnsicht.swift in Sources */,
 				FC2D1F03B299747E4D4F200D /* VerbrauchAnsicht.swift in Sources */,
+				FE8F9C94A2F7A62909E46D6E /* VermieterAnsicht.swift in Sources */,
 				C44EAA1B4606F29600D54621 /* NebenkostenApp.swift in Sources */,
 				7D8EE05C6A2EEB5F96859E25 /* Datenspeicher.swift in Sources */,
 				D3883E6731631D1865A0F91B /* PDFDienst.swift in Sources */,

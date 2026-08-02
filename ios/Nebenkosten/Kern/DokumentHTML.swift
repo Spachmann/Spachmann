@@ -14,18 +14,18 @@ enum DokumentHTML {
     // MARK: - Einstiegspunkte
 
     /// Vollständige HTML-Seite mit allen Mieterabrechnungen.
-    static func alleMieterdokumente(_ daten: Datenbestand, _ periode: Abrechnungszeitraum, _ ergebnis: Abrechnung.Ergebnis) -> String {
-        seite(ergebnis.ergebnisse.map { mieterinhalt(daten, periode, ergebnis, $0) }.joined(separator: "\n"))
+    static func alleMieterdokumente(_ bestand: Objektbestand, _ periode: Abrechnungszeitraum, _ ergebnis: Abrechnung.Ergebnis) -> String {
+        seite(ergebnis.ergebnisse.map { mieterinhalt(bestand, periode, ergebnis, $0) }.joined(separator: "\n"))
     }
 
     /// Vollständige HTML-Seite mit der Abrechnung eines Mietverhältnisses.
-    static func mieterdokument(_ daten: Datenbestand, _ periode: Abrechnungszeitraum, _ ergebnis: Abrechnung.Ergebnis, _ mieter: Abrechnung.Mieterergebnis) -> String {
-        seite(mieterinhalt(daten, periode, ergebnis, mieter))
+    static func mieterdokument(_ bestand: Objektbestand, _ periode: Abrechnungszeitraum, _ ergebnis: Abrechnung.Ergebnis, _ mieter: Abrechnung.Mieterergebnis) -> String {
+        seite(mieterinhalt(bestand, periode, ergebnis, mieter))
     }
 
     /// Vollständige HTML-Seite mit der internen Kostenübersicht des Vermieters.
-    static func vermieteruebersicht(_ daten: Datenbestand, _ periode: Abrechnungszeitraum, _ ergebnis: Abrechnung.Ergebnis) -> String {
-        seite(vermieterinhalt(daten, periode, ergebnis))
+    static func vermieteruebersicht(_ bestand: Objektbestand, _ periode: Abrechnungszeitraum, _ ergebnis: Abrechnung.Ergebnis) -> String {
+        seite(vermieterinhalt(bestand, periode, ergebnis))
     }
 
     // MARK: - Seitengerüst
@@ -114,7 +114,7 @@ enum DokumentHTML {
     // MARK: - Mieterabrechnung
 
     static func mieterinhalt(
-        _ daten: Datenbestand,
+        _ bestand: Objektbestand,
         _ periode: Abrechnungszeitraum,
         _ ergebnis: Abrechnung.Ergebnis,
         _ mieter: Abrechnung.Mieterergebnis
@@ -125,14 +125,14 @@ enum DokumentHTML {
 
         return """
         <div class="blatt">
-        \(kopfbereich(daten, mieter, datum))
+        \(kopfbereich(bestand, mieter, datum))
 
         <h1>Betriebskostenabrechnung \(periode.jahr)</h1>
         <p>Sehr geehrte Damen und Herren,<br>
         nachstehend erhalten Sie die Abrechnung über die Betriebs- und Heizkosten für den
         Abrechnungszeitraum vom \(Datum.deutsch(periode.von)) bis \(Datum.deutsch(periode.bis)).</p>
 
-        \(objektkasten(daten, ergebnis, mieter))
+        \(objektkasten(bestand, ergebnis, mieter))
 
         <h2>1. Gesamtkosten, Verteilerschlüssel und Ihr Anteil</h2>
         \(betriebskostentabelle(ergebnis, mieter))
@@ -151,7 +151,7 @@ enum DokumentHTML {
         <div class="unterschrift">
           <p>Mit freundlichen Grüßen</p>
           <div class="linie"></div>
-          <div>\(esc(daten.vermieter.name))</div>
+          <div>\(esc(bestand.vermieter.anzeigename))</div>
         </div>
 
         \(fussnote)
@@ -159,8 +159,8 @@ enum DokumentHTML {
         """
     }
 
-    private static func kopfbereich(_ daten: Datenbestand, _ mieter: Abrechnung.Mieterergebnis, _ datum: String) -> String {
-        let v = daten.vermieter
+    private static func kopfbereich(_ bestand: Objektbestand, _ mieter: Abrechnung.Mieterergebnis, _ datum: String) -> String {
+        let v = bestand.vermieter
         let zeilen = mieter.mieterAnschrift
             .components(separatedBy: CharacterSet(charactersIn: ",\n"))
             .map { $0.trimmingCharacters(in: .whitespaces) }
@@ -170,7 +170,7 @@ enum DokumentHTML {
 
         var meta = """
         <div class="zeile"><span>Datum</span><span>\(Datum.deutsch(datum))</span></div>
-        <div class="zeile"><span>Objekt</span><span>\(esc(daten.objekt.bezeichnung.isEmpty ? daten.objekt.strasse : daten.objekt.bezeichnung))</span></div>
+        <div class="zeile"><span>Objekt</span><span>\(esc(bestand.objekt.bezeichnung.isEmpty ? bestand.objekt.strasse : bestand.objekt.bezeichnung))</span></div>
         <div class="zeile"><span>Einheit</span><span>\(esc(mieter.einheit?.bezeichnung ?? ""))</span></div>
         """
         if !v.telefon.isEmpty {
@@ -192,7 +192,7 @@ enum DokumentHTML {
         """
     }
 
-    private static func objektkasten(_ daten: Datenbestand, _ ergebnis: Abrechnung.Ergebnis, _ mieter: Abrechnung.Mieterergebnis) -> String {
+    private static func objektkasten(_ bestand: Objektbestand, _ ergebnis: Abrechnung.Ergebnis, _ mieter: Abrechnung.Mieterergebnis) -> String {
         let teilzeitraum = mieter.nutzungTage != ergebnis.tageZeitraum
         let lage = mieter.einheit?.lage ?? ""
         let einheitText = esc(mieter.einheit?.bezeichnung ?? "") + (lage.isEmpty ? "" : " (\(esc(lage)))")
@@ -200,10 +200,10 @@ enum DokumentHTML {
         return """
         <div class="objektkasten">
           <dl>
-            <dt>Abrechnungsobjekt</dt><dd>\(esc(daten.objekt.anschrift))</dd>
+            <dt>Abrechnungsobjekt</dt><dd>\(esc(bestand.objekt.anschrift))</dd>
             <dt>Ihre Wohneinheit</dt><dd>\(einheitText)</dd>
             <dt>Wohnfläche der Einheit</dt><dd>\(Geld.zahl(mieter.einheit?.wohnflaeche ?? 0)) m²</dd>
-            <dt>Gesamtwohnfläche</dt><dd>\(Geld.zahl(daten.massgeblicheWohnflaeche)) m²</dd>
+            <dt>Gesamtwohnfläche</dt><dd>\(Geld.zahl(bestand.massgeblicheWohnflaeche)) m²</dd>
             <dt>Abrechnungszeitraum</dt><dd>\(Datum.deutsch(ergebnis.von)) – \(Datum.deutsch(ergebnis.bis)) (\(ergebnis.tageZeitraum) Tage)</dd>
             <dt>Ihr Nutzungszeitraum</dt><dd>\(Datum.deutsch(mieter.nutzungVon)) – \(Datum.deutsch(mieter.nutzungBis)) (\(mieter.nutzungTage) Tage)\(teilzeitraum ? " – zeitanteilige Abrechnung" : "")</dd>
             <dt>Personen im Haushalt</dt><dd>\(Geld.zahl(mieter.personen, 0))</dd>
@@ -523,7 +523,7 @@ enum DokumentHTML {
 
     // MARK: - Interne Vermieterübersicht
 
-    static func vermieterinhalt(_ daten: Datenbestand, _ periode: Abrechnungszeitraum, _ ergebnis: Abrechnung.Ergebnis) -> String {
+    static func vermieterinhalt(_ bestand: Objektbestand, _ periode: Abrechnungszeitraum, _ ergebnis: Abrechnung.Ergebnis) -> String {
         // Nach der Nummerierung des § 2 BetrKV sortieren.
         let umlagefaehig = ergebnis.positionenUmlagefaehig.sorted { ($0.art?.nr ?? 99) < ($1.art?.nr ?? 99) }
         let nichtUmlagefaehig = ergebnis.positionenNichtUmlagefaehig
@@ -625,7 +625,8 @@ enum DokumentHTML {
         return """
         <div class="blatt">
         <h1>Interne Kostenübersicht \(periode.jahr)</h1>
-        <p>\(esc(daten.objekt.bezeichnung)) · \(esc(daten.objekt.anschrift))<br>
+        <p>\(esc(bestand.objekt.bezeichnung)) · \(esc(bestand.objekt.anschrift))<br>
+        Vermieter: \(esc(bestand.vermieter.anzeigename))<br>
         Abrechnungszeitraum \(Datum.deutsch(ergebnis.von)) – \(Datum.deutsch(ergebnis.bis))
         <span class="warnung"> · Nicht zur Weitergabe an Mieter bestimmt</span></p>
 

@@ -6,12 +6,14 @@ struct MieterAnsicht: View {
 
     var body: some View {
         Group {
-            if speicher.daten.einheiten.isEmpty {
+            if speicher.aktivesObjekt == nil {
+                KeinObjekt()
+            } else if speicher.einheiten.isEmpty {
                 Leerzustand(
                     symbol: "door.left.hand.closed",
                     titel: "Erst Einheiten anlegen",
                     text: "Ein Mietverhältnis gehört immer zu einer Wohneinheit.")
-            } else if speicher.daten.mietverhaeltnisse.isEmpty {
+            } else if speicher.mietverhaeltnisse.isEmpty {
                 Leerzustand(
                     symbol: "person.2",
                     titel: "Keine Mietverhältnisse",
@@ -29,7 +31,7 @@ struct MieterAnsicht: View {
                 } label: {
                     Label("Mietverhältnis", systemImage: "plus")
                 }
-                .disabled(speicher.daten.einheiten.isEmpty)
+                .disabled(speicher.einheiten.isEmpty)
             }
         }
         .confirmationDialog(
@@ -49,69 +51,79 @@ struct MieterAnsicht: View {
 
     private var liste: some View {
         Form {
-            ForEach($speicher.daten.mietverhaeltnisse) { $mv in
-                Section {
-                    TextField("Name des Mieters", text: $mv.mieterName)
+            ForEach(speicher.mietverhaeltnisse) { eintrag in
+                if let index = speicher.daten.mietverhaeltnisse.firstIndex(where: { $0.id == eintrag.id }) {
+                    mietabschnitt($speicher.daten.mietverhaeltnisse[index])
+                }
+            }
+        }
+    }
 
-                    Picker("Wohneinheit", selection: $mv.einheitId) {
-                        ForEach(speicher.daten.einheiten) { einheit in
+    @ViewBuilder
+    private func mietabschnitt(_ mv: Binding<Mietverhaeltnis>) -> some View {
+        Group {
+                Section {
+                    TextField("Name des Mieters", text: mv.mieterName)
+
+                    Picker("Wohneinheit", selection: mv.einheitId) {
+                        ForEach(speicher.einheiten) { einheit in
                             Text(einheit.bezeichnung).tag(einheit.id)
                         }
                     }
 
                     VStack(alignment: .leading, spacing: 2) {
-                        TextField("Anschrift für die Abrechnung", text: $mv.mieterAnschrift, axis: .vertical)
+                        TextField("Anschrift für die Abrechnung", text: mv.mieterAnschrift, axis: .vertical)
                             .lineLimit(1...3)
                         Text("Kommas oder Zeilenumbrüche trennen die Zeilen im Anschriftenfeld.")
                             .font(.caption).foregroundStyle(.secondary)
                     }
 
-                    DatumFeld(titel: "Mietbeginn", wert: $mv.von)
-                    DatumFeld(titel: "Mietende", wert: $mv.bis, optional: true,
+                    DatumFeld(titel: "Mietbeginn", wert: mv.von)
+                    DatumFeld(titel: "Mietende", wert: mv.bis, optional: true,
                               hinweis: "leer lassen, solange das Mietverhältnis läuft")
-                    ZahlFeld(titel: "Personen im Haushalt", wert: $mv.personen,
+                    ZahlFeld(titel: "Personen im Haushalt", wert: mv.personen,
                              einheit: "Pers.", nachkomma: 0,
                              hinweis: "Maßstab für den Personenschlüssel")
 
-                    Picker("Vorauszahlungen", selection: $mv.vzModus) {
+                    Picker("Vorauszahlungen", selection: mv.vzModus) {
                         ForEach(Vorauszahlungsmodus.allCases) { modus in
                             Text(modus.bezeichnung).tag(modus)
                         }
                     }
 
-                    if mv.vzModus == .gesamt {
-                        GeldFeld(titel: "Betriebskosten gesamt", wert: $mv.vzGesamtBetriebskosten)
-                        GeldFeld(titel: "Heizkosten gesamt", wert: $mv.vzGesamtHeizkosten)
+                    if mv.wrappedValue.vzModus == .gesamt {
+                        GeldFeld(titel: "Betriebskosten gesamt", wert: mv.vzGesamtBetriebskosten)
+                        GeldFeld(titel: "Heizkosten gesamt", wert: mv.vzGesamtHeizkosten)
                     } else {
-                        GeldFeld(titel: "Betriebskosten je Monat", wert: $mv.vzBetriebskostenMonat)
-                        GeldFeld(titel: "Heizkosten je Monat", wert: $mv.vzHeizkostenMonat)
+                        GeldFeld(titel: "Betriebskosten je Monat", wert: mv.vzBetriebskostenMonat)
+                        GeldFeld(titel: "Heizkosten je Monat", wert: mv.vzHeizkostenMonat)
                     }
 
                     if let periode = speicher.aktiveAbrechnung {
-                        let vz = Abrechnung.berechneVorauszahlungen(mv, von: max(mv.von, periode.von),
-                                                                    bis: min(mv.ende(spaetestens: periode.bis), periode.bis))
+                        let eintrag = mv.wrappedValue
+                        let vz = Abrechnung.berechneVorauszahlungen(eintrag, von: max(eintrag.von, periode.von),
+                                                                    bis: min(eintrag.ende(spaetestens: periode.bis), periode.bis))
                         Wertzeile(titel: "Im Zeitraum berücksichtigt",
                                   wert: Geld.euro(vz.gesamt),
                                   fett: true)
                     }
 
                     Button(role: .destructive) {
-                        zuLoeschen = mv
+                        zuLoeschen = mv.wrappedValue
                     } label: {
                         Label("Mietverhältnis löschen", systemImage: "trash")
                     }
                 } header: {
                     HStack {
-                        Text(mv.mieterName.isEmpty ? "Neuer Mieter" : mv.mieterName)
+                        Text(mv.wrappedValue.mieterName.isEmpty ? "Neuer Mieter" : mv.wrappedValue.mieterName)
                         Spacer()
-                        if mv.bis.isEmpty {
+                        if mv.wrappedValue.bis.isEmpty {
                             Merkmal(text: "laufend", farbe: .green)
                         } else {
-                            Merkmal(text: "bis \(Datum.deutsch(mv.bis))", farbe: .orange)
+                            Merkmal(text: "bis \(Datum.deutsch(mv.wrappedValue.bis))", farbe: .orange)
                         }
                     }
                 }
-            }
         }
     }
 }

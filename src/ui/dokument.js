@@ -53,15 +53,20 @@ export function mieterDokument(daten, periode, ergebnis, e) {
   <div class="dok-unterschrift">
     <p>Mit freundlichen Grüßen</p>
     <div class="linie"></div>
-    <div>${esc(v.name || '')}</div>
+    <div>${esc(vermieterName(v))}</div>
   </div>
 
   ${fussnote()}
 </div>`;
 }
 
+/** Name des Vermieters, bei Gesellschaften mit vertretungsberechtigten Personen. */
+function vermieterName(v) {
+  return v.vertretenDurch ? `${v.name}, vertreten durch ${v.vertretenDurch}` : v.name || '';
+}
+
 function kopfBereich(v, o, e, periode, datum) {
-  const absender = [v.name, v.strasse, [v.plz, v.ort].filter(Boolean).join(' ')].filter(Boolean).join(' · ');
+  const absender = [vermieterName(v), v.strasse, [v.plz, v.ort].filter(Boolean).join(' ')].filter(Boolean).join(' · ');
   const anschrift = (e.mieterAnschrift || '')
     .split(/\n|,\s*/)
     .map((z) => z.trim())
@@ -454,6 +459,7 @@ export function vermieterUebersicht(daten, periode, ergebnis) {
   <p>${esc(daten.objekt.bezeichnung || '')} · ${esc(daten.objekt.strasse || '')}, ${esc(daten.objekt.plz || '')} ${esc(
     daten.objekt.ort || ''
   )}<br>
+  Vermieter: ${esc(vermieterName(daten.vermieter))}<br>
   Abrechnungszeitraum ${dt(ergebnis.zeitraum.von)} – ${dt(ergebnis.zeitraum.bis)}
   <span style="color:#a00;font-weight:700"> · Nicht zur Weitergabe an Mieter bestimmt</span></p>
 

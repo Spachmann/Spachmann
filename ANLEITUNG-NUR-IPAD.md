@@ -75,23 +75,31 @@ Adresszeile, und sie funktioniert auch ohne Internetverbindung.
 ## Schritt 3 – Ausprobieren
 
 Links **Daten & Sicherung → Beispieldaten laden** antippen. Danach zeigen alle
-Bereiche ein vollständiges Mehrfamilienhaus mit Mieterwechsel, Heizkosten und
-CO₂-Aufteilung – gut, um sich vor der eigenen Abrechnung umzusehen.
+Bereiche ein vollständiges Portfolio: zwei privat gehaltene Immobilien und eine
+GbR mit zwei weiteren Objekten, mit Mieterwechsel, Heizkosten und
+CO₂-Aufteilung – gut, um sich vor der eigenen Abrechnung umzusehen. Oben in der
+Seitenleiste kannst du zwischen den Objekten wechseln.
 
 Wenn du dann startest: **Daten & Sicherung → Alle Daten löschen** und mit den
-eigenen Stammdaten beginnen.
+eigenen Vermietern und Objekten beginnen.
 
 Reihenfolge für die eigene Abrechnung:
 
-1. **Stammdaten** – Vermieter und Objekt
-2. **Wohneinheiten** – jede Einheit mit Wohnfläche, auch leerstehende
-3. **Mietverhältnisse** – Mieter, Zeiträume, Personen, Vorauszahlungen
-4. **Daten & Sicherung** – Abrechnungszeitraum anlegen, etwa 2024
-5. **Kosten** – jede Rechnung als Position
-6. **Heizung & Warmwasser** – falls zentral geheizt wird
-7. **Verbräuche** – Zählerstände
-8. **Rechtsprüfung** – Fehler und Warnungen abarbeiten
-9. **Dokument** – Vorschau prüfen und drucken
+1. **Vermieter** – dich selbst anlegen; für eine GbR einen zweiten Eintrag mit
+   Rechtsform *GbR* und dem Feld *Vertreten durch*
+2. **Objekte** – jede Immobilie anlegen und dem richtigen Vermieter zuordnen
+3. **Wohneinheiten** – jede Einheit mit Wohnfläche, auch leerstehende
+4. **Mietverhältnisse** – Mieter, Zeiträume, Personen, Vorauszahlungen
+5. **Daten & Sicherung** – Abrechnungszeitraum anlegen, etwa 2024
+6. **Kosten** – jede Rechnung als Position
+7. **Heizung & Warmwasser** – falls zentral geheizt wird
+8. **Verbräuche** – Zählerstände
+9. **Rechtsprüfung** – Fehler und Warnungen abarbeiten
+10. **Dokument** – Vorschau prüfen und drucken
+
+Ab Schritt 3 gilt alles **je Objekt**. Welches Objekt gemeint ist, wählst du
+oben in der Seitenleiste. Für jedes weitere Haus wiederholst du die Schritte
+3 bis 10 – die Daten der Objekte bleiben vollständig getrennt.
 
 ---
 

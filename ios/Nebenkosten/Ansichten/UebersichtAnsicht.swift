@@ -5,15 +5,22 @@ struct UebersichtAnsicht: View {
 
     var body: some View {
         Group {
-            if speicher.daten.einheiten.isEmpty {
+            if speicher.daten.vermieter.isEmpty || speicher.daten.objekte.isEmpty {
                 Leerzustand(
                     symbol: "house",
                     titel: "Noch keine Daten erfasst",
-                    text: "Lege zuerst Stammdaten und Wohneinheiten an – oder lade den Beispieldatensatz, um die App auszuprobieren.",
+                    text: "Lege zuerst einen Vermieter und ein Objekt an – oder lade den Beispieldatensatz mit zwei privaten Immobilien und einer GbR, um die App auszuprobieren.",
                     aktionstitel: "Beispieldaten laden",
                     aktion: { speicher.ladeDemodaten() })
-            } else if let ergebnis = speicher.ergebnis {
-                inhalt(ergebnis)
+            } else if let bestand = speicher.bestand, let ergebnis = speicher.ergebnis {
+                inhalt(bestand, ergebnis)
+            } else if let bestand = speicher.bestand, bestand.einheiten.isEmpty {
+                Leerzustand(
+                    symbol: "door.left.hand.closed",
+                    titel: "Dieses Objekt hat noch keine Einheiten",
+                    text: "Lege für jede vermietbare Einheit von „\(bestand.objekt.anzeigename)“ einen Eintrag an – auch für leerstehende.",
+                    aktionstitel: "Einheit anlegen",
+                    aktion: { speicher.legeEinheitAn() })
             } else {
                 KeinZeitraum()
             }
@@ -21,7 +28,7 @@ struct UebersichtAnsicht: View {
     }
 
     @ViewBuilder
-    private func inhalt(_ ergebnis: Abrechnung.Ergebnis) -> some View {
+    private func inhalt(_ bestand: Objektbestand, _ ergebnis: Abrechnung.Ergebnis) -> some View {
         List {
             Section {
                 if let pruefung = speicher.pruefung {
@@ -60,6 +67,8 @@ struct UebersichtAnsicht: View {
                              wert: Geld.euro(ergebnis.summen.aufMieterUmgelegt),
                              zusatz: "\(ergebnis.ergebnisse.count) Mietverhältnis(se)")
                 }
+            } header: {
+                Text("\(bestand.objekt.anzeigename) · \(bestand.vermieter.name)")
             }
             .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
             .listRowBackground(Color.clear)
@@ -90,18 +99,58 @@ struct UebersichtAnsicht: View {
                           fett: true)
             }
 
-            Section {
-                Text(objektzeile)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+            if speicher.daten.objekte.count > 1 {
+                portfolio
             }
         }
     }
 
-    private var objektzeile: String {
-        let objekt = speicher.daten.objekt
-        let name = objekt.bezeichnung.isEmpty ? objekt.strasse : objekt.bezeichnung
-        return "\(name) · \(speicher.daten.einheiten.count) Einheiten · \(Geld.zahl(speicher.daten.summeWohnflaechen)) m²"
+    /// Übersicht über alle Objekte, nach Vermieter gruppiert.
+    @ViewBuilder
+    private var portfolio: some View {
+        Section {
+            ForEach(speicher.daten.vermieter) { vermieter in
+                let eigene = speicher.daten.objekteZu(vermieterId: vermieter.id)
+                if !eigene.isEmpty {
+                    Text(vermieter.name.isEmpty ? "Ohne Namen" : vermieter.name)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    ForEach(eigene) { objekt in
+                        objektzeile(objekt)
+                    }
+                }
+            }
+        } header: {
+            Text("Portfolio – \(speicher.daten.objekte.count) Objekte")
+        } footer: {
+            Text("Abgerechnet wird immer je Objekt. Oben in der Seitenleiste wechselst du zwischen ihnen.")
+        }
+    }
+
+    private func objektzeile(_ objekt: Objekt) -> some View {
+        let eigene = speicher.daten.einheitenZu(objektId: objekt.id)
+        let aktiv = objekt.id == speicher.aktivesObjektId
+
+        return Button {
+            speicher.aktivesObjektId = objekt.id
+        } label: {
+            HStack {
+                VStack(alignment: .leading, spacing: 1) {
+                    HStack(spacing: 6) {
+                        Text(objekt.anzeigename).foregroundStyle(.primary)
+                        if aktiv { Merkmal(text: "aktiv", farbe: .green) }
+                    }
+                    Text("\(eigene.count) Einheiten · \(Geld.zahl(eigene.map(\.wohnflaeche).summe)) m² · \(objekt.anschrift)")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer()
+                if !aktiv {
+                    Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .disabled(aktiv)
     }
 
     private func anteilstext(_ ergebnis: Abrechnung.Ergebnis) -> String {

@@ -8,7 +8,10 @@ import { warmwasserWaermemengeKwh, warmwasserAnteil, berechneHeizkosten, verbrau
 import { BETRIEBSKOSTEN, NICHT_UMLAGEFAEHIG, istUmlagefaehigeArt, SCHLUESSEL } from '../src/core/katalog.js';
 import { berechneAbrechnung, bildeNutzeinheiten, berechneVorauszahlungen, istUmlagefaehig, verteilePosition } from '../src/core/abrechnung.js';
 import { pruefe } from '../src/core/pruefung.js';
-import { demodaten, neuePosition, migriere, leererDatenbestand } from '../src/core/model.js';
+import {
+  demodaten, neuePosition, migriere, leererDatenbestand, bestandFuerObjekt,
+  einheitenVon, mietverhaeltnisseVon, abrechnungenVon, objekteVon, rechtsform,
+} from '../src/core/model.js';
 
 // ---------------------------------------------------------------- Geldbeträge
 
@@ -244,7 +247,8 @@ test('CO2-Vermieteranteil mindert die umlagefähigen Brennstoffkosten', () => {
 
 test('Mieterwechsel erzeugt Abschnitte samt Leerstandslücke', () => {
   const daten = demodaten();
-  const n = bildeNutzeinheiten(daten, { von: '2024-01-01', bis: '2024-12-31' });
+  const bestand = bestandFuerObjekt(daten, 'o1');
+  const n = bildeNutzeinheiten(bestand, { von: '2024-01-01', bis: '2024-12-31' });
   const e3 = n.filter((x) => x.einheitId === 'e3');
   assert.equal(e3.length, 3);
   assert.equal(e3[0].mieterName, 'Frau Costa');
@@ -258,7 +262,8 @@ test('Mieterwechsel erzeugt Abschnitte samt Leerstandslücke', () => {
 
 test('durchgehendes Mietverhältnis erzeugt genau einen Abschnitt', () => {
   const daten = demodaten();
-  const n = bildeNutzeinheiten(daten, { von: '2024-01-01', bis: '2024-12-31' });
+  const bestand = bestandFuerObjekt(daten, 'o1');
+  const n = bildeNutzeinheiten(bestand, { von: '2024-01-01', bis: '2024-12-31' });
   const e1 = n.filter((x) => x.einheitId === 'e1');
   assert.equal(e1.length, 1);
   assert.equal(e1[0].tage, 366);
@@ -282,7 +287,7 @@ test('Vorauszahlungen können als Gesamtbetrag erfasst werden', () => {
 test('Flächenschlüssel verteilt zeitanteilig und vollständig', () => {
   const daten = demodaten();
   const zeitraum = { von: '2024-01-01', bis: '2024-12-31' };
-  const nutz = bildeNutzeinheiten(daten, zeitraum);
+  const nutz = bildeNutzeinheiten(bestandFuerObjekt(daten, 'o1'), zeitraum);
   const p = { ...neuePosition('grundsteuer', SCHLUESSEL.FLAECHE), betragBrutto: 100000 };
   const r = verteilePosition(p, nutz, { zeitraum });
 
@@ -294,7 +299,7 @@ test('Flächenschlüssel verteilt zeitanteilig und vollständig', () => {
 test('Kosten eines Teilzeitraums treffen nur die dortigen Nutzer', () => {
   const daten = demodaten();
   const zeitraum = { von: '2024-01-01', bis: '2024-12-31' };
-  const nutz = bildeNutzeinheiten(daten, zeitraum);
+  const nutz = bildeNutzeinheiten(bestandFuerObjekt(daten, 'o1'), zeitraum);
   const p = {
     ...neuePosition('gartenpflege', SCHLUESSEL.FLAECHE),
     betragBrutto: 100000,
@@ -312,7 +317,7 @@ test('Kosten eines Teilzeitraums treffen nur die dortigen Nutzer', () => {
 test('Direktzuordnung belastet nur die gewählte Einheit', () => {
   const daten = demodaten();
   const zeitraum = { von: '2024-01-01', bis: '2024-12-31' };
-  const nutz = bildeNutzeinheiten(daten, zeitraum);
+  const nutz = bildeNutzeinheiten(bestandFuerObjekt(daten, 'o1'), zeitraum);
   const p = { ...neuePosition('sonstige', SCHLUESSEL.DIREKT), betragBrutto: 50000, direktEinheitId: 'e2' };
   const r = verteilePosition(p, nutz, { zeitraum });
 
@@ -326,7 +331,7 @@ test('Direktzuordnung belastet nur die gewählte Einheit', () => {
 test('Wasserdifferenz wird als eigene, nachprüfbare Zeile ausgewiesen', () => {
   const daten = demodaten();
   const zeitraum = { von: '2024-01-01', bis: '2024-12-31' };
-  const nutz = bildeNutzeinheiten(daten, zeitraum);
+  const nutz = bildeNutzeinheiten(bestandFuerObjekt(daten, 'o1'), zeitraum);
   const verbraeuche = daten.abrechnungen[0].verbraeuche;
   const hauptzaehler = daten.abrechnungen[0].hauptzaehler.kaltwasser;
   const summeZaehler = summe(verbraeuche.filter((v) => v.art === 'kaltwasser').map((v) => v.wert));
@@ -357,7 +362,7 @@ test('Wasserdifferenz wird als eigene, nachprüfbare Zeile ausgewiesen', () => {
 test('Wasserdifferenz zulasten des Vermieters bleibt beim Vermieter', () => {
   const daten = demodaten();
   const zeitraum = { von: '2024-01-01', bis: '2024-12-31' };
-  const nutz = bildeNutzeinheiten(daten, zeitraum);
+  const nutz = bildeNutzeinheiten(bestandFuerObjekt(daten, 'o1'), zeitraum);
   const verbraeuche = daten.abrechnungen[0].verbraeuche;
   const hauptzaehler = daten.abrechnungen[0].hauptzaehler.kaltwasser;
   const summeZaehler = summe(verbraeuche.filter((v) => v.art === 'kaltwasser').map((v) => v.wert));
@@ -379,7 +384,7 @@ test('Wasserdifferenz zulasten des Vermieters bleibt beim Vermieter', () => {
 
 test('Gesamtabrechnung trennt umlagefähige von nicht umlagefähigen Kosten', () => {
   const daten = demodaten();
-  const r = berechneAbrechnung(daten, daten.abrechnungen[0]);
+  const r = berechneAbrechnung(bestandFuerObjekt(daten, 'o1'), daten.abrechnungen[0]);
 
   assert.equal(r.positionenNichtUmlagefaehig.length, 3);
   const nichtIds = r.positionenNichtUmlagefaehig.map((p) => p.kostenartId).sort();
@@ -396,7 +401,7 @@ test('Gesamtabrechnung trennt umlagefähige von nicht umlagefähigen Kosten', ()
 test('Verwaltungs- und Instandhaltungskosten schlagen nie beim Mieter durch', () => {
   const daten = demodaten();
   const periode = daten.abrechnungen[0];
-  const r = berechneAbrechnung(daten, periode);
+  const r = berechneAbrechnung(bestandFuerObjekt(daten, 'o1'), periode);
 
   const erwartet = summe(
     periode.positionen.filter((p) => !istUmlagefaehig(p)).map((p) => p.betragBrutto)
@@ -411,7 +416,7 @@ test('Verwaltungs- und Instandhaltungskosten schlagen nie beim Mieter durch', ()
 
 test('umgelegte Summe plus Vermieteranteile ergibt die Gesamtkosten', () => {
   const daten = demodaten();
-  const r = berechneAbrechnung(daten, daten.abrechnungen[0]);
+  const r = berechneAbrechnung(bestandFuerObjekt(daten, 'o1'), daten.abrechnungen[0]);
 
   const rekonstruiert =
     r.summen.aufMieterUmgelegt +
@@ -429,7 +434,7 @@ test('umgelegte Summe plus Vermieteranteile ergibt die Gesamtkosten', () => {
 
 test('jedes Mietverhältnis erhält ein nachvollziehbares Ergebnis', () => {
   const daten = demodaten();
-  const r = berechneAbrechnung(daten, daten.abrechnungen[0]);
+  const r = berechneAbrechnung(bestandFuerObjekt(daten, 'o1'), daten.abrechnungen[0]);
   assert.equal(r.ergebnisse.length, 5);
 
   for (const e of r.ergebnisse) {
@@ -448,7 +453,7 @@ test('jedes Mietverhältnis erhält ein nachvollziehbares Ergebnis', () => {
 
 test('jeder Posten ist für den Mieter nachrechenbar', () => {
   const daten = demodaten();
-  const r = berechneAbrechnung(daten, daten.abrechnungen[0]);
+  const r = berechneAbrechnung(bestandFuerObjekt(daten, 'o1'), daten.abrechnungen[0]);
 
   for (const e of r.ergebnisse) {
     const ganzjaehrig = e.nutzungTage === r.tageZeitraum;
@@ -473,7 +478,7 @@ test('jeder Posten ist für den Mieter nachrechenbar', () => {
 
 test('unterjähriger Mieterwechsel führt zu zeitanteiligen Beträgen', () => {
   const daten = demodaten();
-  const r = berechneAbrechnung(daten, daten.abrechnungen[0]);
+  const r = berechneAbrechnung(bestandFuerObjekt(daten, 'o1'), daten.abrechnungen[0]);
   const costa = r.ergebnisse.find((e) => e.mieterName === 'Frau Costa');
   const delgado = r.ergebnisse.find((e) => e.mieterName === 'Herr und Frau Delgado');
 
@@ -489,7 +494,7 @@ test('unterjähriger Mieterwechsel führt zu zeitanteiligen Beträgen', () => {
 
 test('Leerstandsanteil wird nicht auf Mieter umgelegt', () => {
   const daten = demodaten();
-  const r = berechneAbrechnung(daten, daten.abrechnungen[0]);
+  const r = berechneAbrechnung(bestandFuerObjekt(daten, 'o1'), daten.abrechnungen[0]);
   assert.ok(r.vermieter.leerstandsanteil > 0);
   const summeMieter = summe(r.ergebnisse.map((e) => e.summeGesamt));
   assert.ok(summeMieter + r.vermieter.leerstandsanteil <= r.summen.umlagefaehig + 200);
@@ -498,7 +503,7 @@ test('Leerstandsanteil wird nicht auf Mieter umgelegt', () => {
 test('§ 35a-Lohnanteile werden anteilig bescheinigt', () => {
   const daten = demodaten();
   const periode = daten.abrechnungen[0];
-  const r = berechneAbrechnung(daten, periode);
+  const r = berechneAbrechnung(bestandFuerObjekt(daten, 'o1'), periode);
 
   const erfasstHaushaltsnah = summe(periode.positionen.map((p) => p.lohnanteilHaushaltsnah || 0));
   const erfasstHandwerker = summe(periode.positionen.map((p) => p.lohnanteilHandwerker || 0));
@@ -512,7 +517,7 @@ test('§ 35a-Lohnanteile werden anteilig bescheinigt', () => {
 
 test('Heizkosten fließen in jedes Mietverhältnis ein', () => {
   const daten = demodaten();
-  const r = berechneAbrechnung(daten, daten.abrechnungen[0]);
+  const r = berechneAbrechnung(bestandFuerObjekt(daten, 'o1'), daten.abrechnungen[0]);
   for (const e of r.ergebnisse) assert.ok(e.heizsumme > 0, `${e.mieterName} ohne Heizkosten`);
   const summeHeiz = summe(r.ergebnisse.map((e) => e.heizsumme));
   assert.ok(summeHeiz <= r.heizung.gesamtUmlagefaehig);
@@ -522,24 +527,24 @@ test('Heizkosten fließen in jedes Mietverhältnis ein', () => {
 
 test('Demodaten sind abrechnungsfähig', () => {
   const daten = demodaten();
-  const r = berechneAbrechnung(daten, daten.abrechnungen[0]);
-  const p = pruefe(daten, daten.abrechnungen[0], r);
+  const r = berechneAbrechnung(bestandFuerObjekt(daten, 'o1'), daten.abrechnungen[0]);
+  const p = pruefe(bestandFuerObjekt(daten, 'o1'), daten.abrechnungen[0], r);
   assert.equal(p.abrechnungsfaehig, true, JSON.stringify(p.befunde.filter((b) => b.stufe === 'fehler'), null, 2));
 });
 
 test('Zeitraum über zwölf Monate wird als Fehler erkannt', () => {
   const daten = demodaten();
   const periode = { ...daten.abrechnungen[0], von: '2024-01-01', bis: '2025-03-31' };
-  const r = berechneAbrechnung(daten, periode);
-  const p = pruefe(daten, periode, r);
+  const r = berechneAbrechnung(bestandFuerObjekt(daten, 'o1'), periode);
+  const p = pruefe(bestandFuerObjekt(daten, 'o1'), periode, r);
   assert.ok(p.befunde.some((b) => b.stufe === 'fehler' && b.titel.includes('zwölf Monate')));
 });
 
 test('Versäumte Abrechnungsfrist sperrt Nachforderungen', () => {
   const daten = demodaten();
   const periode = { ...daten.abrechnungen[0], zugestelltAm: '2026-02-01' };
-  const r = berechneAbrechnung(daten, periode);
-  const p = pruefe(daten, periode, r);
+  const r = berechneAbrechnung(bestandFuerObjekt(daten, 'o1'), periode);
+  const p = pruefe(bestandFuerObjekt(daten, 'o1'), periode, r);
   assert.ok(p.befunde.some((b) => b.stufe === 'fehler' && b.titel === 'Abrechnungsfrist versäumt'));
 });
 
@@ -547,8 +552,8 @@ test('Sonstige Betriebskosten ohne Vereinbarung sind ein Fehler', () => {
   const daten = demodaten();
   const periode = structuredClone(daten.abrechnungen[0]);
   periode.positionen.find((p) => p.kostenartId === 'sonstige').imMietvertragVereinbart = false;
-  const r = berechneAbrechnung(daten, periode);
-  const p = pruefe(daten, periode, r);
+  const r = berechneAbrechnung(bestandFuerObjekt(daten, 'o1'), periode);
+  const p = pruefe(bestandFuerObjekt(daten, 'o1'), periode, r);
   assert.ok(p.befunde.some((b) => b.stufe === 'fehler' && b.titel.includes('Sonstige Betriebskosten nicht vereinbart')));
 });
 
@@ -556,8 +561,8 @@ test('Unzulässiger Verbrauchsanteil wird erkannt', () => {
   const daten = demodaten();
   const periode = structuredClone(daten.abrechnungen[0]);
   periode.heizung.anteilVerbrauchHeizung = 0.8;
-  const r = berechneAbrechnung(daten, periode);
-  const p = pruefe(daten, periode, r);
+  const r = berechneAbrechnung(bestandFuerObjekt(daten, 'o1'), periode);
+  const p = pruefe(bestandFuerObjekt(daten, 'o1'), periode, r);
   assert.ok(p.befunde.some((b) => b.stufe === 'fehler' && b.titel.includes('Verbrauchsanteil Heizung')));
 });
 
@@ -565,8 +570,8 @@ test('Kabel-TV nach dem 30.06.2024 löst eine Warnung aus', () => {
   const daten = demodaten();
   const periode = structuredClone(daten.abrechnungen[0]);
   periode.positionen.push({ ...neuePosition('antenne_breitband', SCHLUESSEL.EINHEITEN), betragBrutto: 50000, bezeichnung: 'Kabelanschluss' });
-  const r = berechneAbrechnung(daten, periode);
-  const p = pruefe(daten, periode, r);
+  const r = berechneAbrechnung(bestandFuerObjekt(daten, 'o1'), periode);
+  const p = pruefe(bestandFuerObjekt(daten, 'o1'), periode, r);
   assert.ok(p.befunde.some((b) => b.stufe === 'warnung' && b.titel.includes('Breitband')));
 });
 
@@ -574,26 +579,180 @@ test('Hauswart ohne Abzug löst eine Warnung aus', () => {
   const daten = demodaten();
   const periode = structuredClone(daten.abrechnungen[0]);
   periode.positionen.find((p) => p.kostenartId === 'hauswart').abzugBetrag = 0;
-  const r = berechneAbrechnung(daten, periode);
-  const p = pruefe(daten, periode, r);
+  const r = berechneAbrechnung(bestandFuerObjekt(daten, 'o1'), periode);
+  const p = pruefe(bestandFuerObjekt(daten, 'o1'), periode, r);
   assert.ok(p.befunde.some((b) => b.stufe === 'warnung' && b.titel === 'Hauswartkosten ohne Abzug'));
 });
 
 test('Nutzerwechsel erzeugt Hinweis auf Zwischenablesung', () => {
   const daten = demodaten();
-  const r = berechneAbrechnung(daten, daten.abrechnungen[0]);
-  const p = pruefe(daten, daten.abrechnungen[0], r);
+  const r = berechneAbrechnung(bestandFuerObjekt(daten, 'o1'), daten.abrechnungen[0]);
+  const p = pruefe(bestandFuerObjekt(daten, 'o1'), daten.abrechnungen[0], r);
   assert.ok(p.befunde.some((b) => b.titel.startsWith('Nutzerwechsel')));
 });
 
 // ------------------------------------------------------------------ Modell
 
-test('migriere ergänzt fehlende Felder', () => {
-  const alt = { einheiten: [{ id: 'e1', bezeichnung: 'W1' }], abrechnungen: [{ id: 'a1', jahr: 2023, positionen: [{ id: 'p1', kostenartId: 'grundsteuer' }] }] };
+test('migriere hebt eine Sicherung der Fassung 1 auf die Mehrobjektstruktur', () => {
+  // Fassung 1 kannte genau einen Vermieter und ein Objekt.
+  const alt = {
+    vermieter: { name: 'Kim Spachmann', ort: 'Stuttgart' },
+    objekt: { bezeichnung: 'Haus A', strasse: 'Weg 1', wohnflaecheGesamt: 120 },
+    einheiten: [{ id: 'e1', bezeichnung: 'W1', wohnflaeche: 60 }],
+    mietverhaeltnisse: [{ id: 'm1', einheitId: 'e1', mieterName: 'Frau A' }],
+    abrechnungen: [{ id: 'a1', jahr: 2023, positionen: [{ id: 'p1', kostenartId: 'grundsteuer' }] }],
+  };
   const neu = migriere(alt);
-  assert.equal(neu.version, 1);
-  assert.equal(neu.einheiten[0].wohnflaeche, 0);
+
+  assert.equal(neu.version, 2);
+  assert.equal(neu.vermieter.length, 1);
+  assert.equal(neu.vermieter[0].name, 'Kim Spachmann');
+  assert.equal(neu.vermieter[0].rechtsform, 'privat');
+  assert.equal(neu.objekte.length, 1);
+  assert.equal(neu.objekte[0].bezeichnung, 'Haus A');
+  assert.equal(neu.objekte[0].vermieterId, neu.vermieter[0].id);
+
+  // Einheiten und Abrechnungen hängen danach am migrierten Objekt.
+  assert.equal(neu.einheiten[0].objektId, neu.objekte[0].id);
+  assert.equal(neu.abrechnungen[0].objektId, neu.objekte[0].id);
+
+  // Fehlende Felder werden ergänzt.
+  assert.equal(neu.abrechnungen[0].von, '2023-01-01');
   assert.equal(neu.abrechnungen[0].heizung.anteilVerbrauchHeizung, 0.7);
   assert.equal(neu.abrechnungen[0].positionen[0].abzugBetrag, 0);
-  assert.deepEqual(neu.vermieter, leererDatenbestand().vermieter);
+
+  // Und der migrierte Bestand ist unmittelbar rechenbar.
+  const bestand = bestandFuerObjekt(neu, neu.objekte[0].id);
+  assert.equal(bestand.einheiten.length, 1);
+  assert.equal(bestand.mietverhaeltnisse.length, 1);
+  assert.equal(bestand.vermieter.name, 'Kim Spachmann');
+});
+
+test('migriere lässt eine Sicherung der Fassung 2 unverändert', () => {
+  const original = demodaten();
+  const neu = migriere(JSON.parse(JSON.stringify(original)));
+  assert.equal(neu.vermieter.length, 2);
+  assert.equal(neu.objekte.length, 4);
+  assert.equal(neu.einheiten.length, original.einheiten.length);
+  assert.deepEqual(neu.objekte.map((o) => o.id), original.objekte.map((o) => o.id));
+});
+
+test('migriere verträgt einen leeren Bestand', () => {
+  const neu = migriere({});
+  assert.deepEqual(neu, leererDatenbestand());
+});
+
+// ------------------------------------------------------- Mehrere Objekte
+
+test('Beispielbestand enthält zwei Vermieter und vier Objekte', () => {
+  const daten = demodaten();
+  assert.equal(daten.vermieter.length, 2);
+  assert.equal(daten.objekte.length, 4);
+  assert.equal(objekteVon(daten, 'v1').length, 2); // privat
+  assert.equal(objekteVon(daten, 'v2').length, 2); // GbR
+  assert.equal(rechtsform(daten.vermieter[1].rechtsform).id, 'gbr');
+});
+
+test('jedes Objekt sieht ausschließlich seine eigenen Einheiten und Mieter', () => {
+  const daten = demodaten();
+  const alleEinheiten = new Set();
+  const alleMieter = new Set();
+
+  for (const o of daten.objekte) {
+    const bestand = bestandFuerObjekt(daten, o.id);
+    assert.equal(bestand.objekt.id, o.id);
+
+    for (const e of bestand.einheiten) {
+      assert.equal(e.objektId, o.id, `${e.bezeichnung} gehört zu einem anderen Objekt`);
+      assert.ok(!alleEinheiten.has(e.id), 'Einheit taucht in zwei Objekten auf');
+      alleEinheiten.add(e.id);
+    }
+    for (const m of bestand.mietverhaeltnisse) {
+      assert.ok(bestand.einheiten.some((e) => e.id === m.einheitId));
+      assert.ok(!alleMieter.has(m.id), 'Mietverhältnis taucht in zwei Objekten auf');
+      alleMieter.add(m.id);
+    }
+  }
+
+  // Es geht nichts verloren.
+  assert.equal(alleEinheiten.size, daten.einheiten.length);
+  assert.equal(alleMieter.size, daten.mietverhaeltnisse.length);
+});
+
+test('Kosten eines Objekts wirken sich nicht auf andere Objekte aus', () => {
+  const daten = demodaten();
+  const vorher = daten.objekte.map((o) => {
+    const b = bestandFuerObjekt(daten, o.id);
+    return berechneAbrechnung(b, abrechnungenVon(daten, o.id)[0]).summen.aufMieterUmgelegt;
+  });
+
+  // Im ersten Objekt eine große Position ergänzen
+  abrechnungenVon(daten, 'o1')[0].positionen.push({
+    ...neuePosition('gartenpflege', SCHLUESSEL.FLAECHE),
+    betragBrutto: 500000,
+  });
+
+  const nachher = daten.objekte.map((o) => {
+    const b = bestandFuerObjekt(daten, o.id);
+    return berechneAbrechnung(b, abrechnungenVon(daten, o.id)[0]).summen.aufMieterUmgelegt;
+  });
+
+  assert.ok(nachher[0] > vorher[0], 'Objekt 1 muss teurer werden');
+  assert.deepEqual(nachher.slice(1), vorher.slice(1), 'die übrigen Objekte dürfen sich nicht ändern');
+});
+
+test('jedes Objekt des Beispielbestands ist abrechnungsfähig', () => {
+  const daten = demodaten();
+  for (const o of daten.objekte) {
+    const bestand = bestandFuerObjekt(daten, o.id);
+    const periode = abrechnungenVon(daten, o.id)[0];
+    assert.ok(periode, `${o.bezeichnung} ohne Abrechnungszeitraum`);
+
+    const r = berechneAbrechnung(bestand, periode);
+    const pr = pruefe(bestand, periode, r);
+    assert.ok(
+      pr.abrechnungsfaehig,
+      `${o.bezeichnung}: ${pr.befunde.filter((b) => b.stufe === 'fehler').map((b) => b.titel).join(' | ')}`
+    );
+    assert.equal(r.ergebnisse.length, bestand.mietverhaeltnisse.length);
+    assert.ok(r.summen.umlagefaehig > 0);
+  }
+});
+
+test('jedes Mieterdokument nennt den Vermieter des jeweiligen Objekts', () => {
+  const daten = demodaten();
+  for (const o of daten.objekte) {
+    const bestand = bestandFuerObjekt(daten, o.id);
+    const r = berechneAbrechnung(bestand, abrechnungenVon(daten, o.id)[0]);
+    assert.equal(bestand.vermieter.id, o.vermieterId);
+    assert.ok(bestand.vermieter.name.length > 0);
+  }
+});
+
+test('fehlende Vertretung einer GbR wird bemängelt', () => {
+  const daten = demodaten();
+  const gbr = daten.vermieter.find((v) => v.rechtsform === 'gbr');
+  const objekt = objekteVon(daten, gbr.id)[0];
+  const periode = abrechnungenVon(daten, objekt.id)[0];
+
+  // Mit Vertretung: kein Befund
+  let bestand = bestandFuerObjekt(daten, objekt.id);
+  let pr = pruefe(bestand, periode, berechneAbrechnung(bestand, periode));
+  assert.ok(!pr.befunde.some((b) => b.titel.includes('Vertretung')));
+
+  // Ohne Vertretung: Warnung
+  gbr.vertretenDurch = '';
+  bestand = bestandFuerObjekt(daten, objekt.id);
+  pr = pruefe(bestand, periode, berechneAbrechnung(bestand, periode));
+  assert.ok(pr.befunde.some((b) => b.stufe === 'warnung' && b.titel.includes('Vertretung')));
+});
+
+test('Hilfsfunktionen liefern die Zuordnung je Objekt', () => {
+  const daten = demodaten();
+  assert.equal(einheitenVon(daten, 'o1').length, 4);
+  assert.equal(einheitenVon(daten, 'o2').length, 2);
+  assert.equal(mietverhaeltnisseVon(daten, 'o1').length, 5);
+  assert.equal(mietverhaeltnisseVon(daten, 'o3').length, 3);
+  assert.equal(abrechnungenVon(daten, 'o4').length, 1);
+  assert.equal(bestandFuerObjekt(daten, 'gibtesnicht'), null);
 });

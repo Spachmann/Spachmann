@@ -32,8 +32,9 @@ cd ios
 swift test
 ```
 
-Die Tests vergleichen das Ergebnis Zahl für Zahl mit den Referenzwerten der
-Web-Fassung. Weicht die Portierung ab, schlagen sie fehl.
+Die 74 Tests vergleichen das Ergebnis Zahl für Zahl mit den Referenzwerten der
+Web-Fassung. Weicht die Portierung ab, schlagen sie fehl. Zusätzlich prüfen sie,
+dass sich mehrere Vermieter und Objekte sauber voneinander trennen.
 
 > **Wichtig:** Dieser Swift-Code wurde in einer Linux-Umgebung ohne Swift-
 > Toolchain geschrieben und konnte dort nicht kompiliert werden. Führe daher als
@@ -56,7 +57,7 @@ ios/
 │   │   ├── Katalog.swift             § 2 BetrKV und nicht umlagefähige Arten
 │   │   ├── CO2.swift                 Stufenmodell des CO2KostAufG
 │   │   ├── Heizkosten.swift          HeizkostenV
-│   │   ├── Modell.swift              Datenmodell (Codable)
+│   │   ├── Modell.swift              Datenmodell (Codable), Objektbestand
 │   │   ├── Abrechnung.swift          Nutzungszeiträume, Verteilung, Ergebnis
 │   │   ├── Pruefung.swift            Rechts- und Plausibilitätsprüfung
 │   │   ├── Demodaten.swift           Beispieldatensatz
@@ -85,10 +86,32 @@ Wer lieber in Xcode arbeitet, kann Dateien auch dort hinzufügen – dann sollte
 der Generator nicht mehr ausgeführt werden, weil er die Projektdatei neu
 schreibt.
 
+## Datenmodell
+
+```
+Vermieter (Rechtsform, bei Gesellschaften „vertreten durch")
+  └── Objekt (eine Immobilie)
+        ├── Einheit
+        │     └── Mietverhältnis
+        └── Abrechnungszeitraum (Kosten, Verbräuche, Heizung)
+```
+
+`Datenbestand` hält alle Vermieter und Objekte. Gerechnet, geprüft und
+dokumentiert wird immer auf einem `Objektbestand` – dem über
+`daten.bestand(fuerObjekt:)` auf ein Objekt zugeschnittenen Ausschnitt.
+`Abrechnung`, `Pruefung` und `DokumentHTML` kennen deshalb keine
+Mehrobjektlogik und können ein Objekt nie mit einem anderen vermischen.
+
+Ältere Sicherungen mit genau einem Vermieter und genau einem Objekt werden beim
+Lesen automatisch auf diese Struktur gehoben.
+
 ## Was die App kann
 
 Fachlich deckungsgleich mit der Web-Fassung – siehe die ausführliche
 Beschreibung in `../README.md`:
+
+* **mehrere Vermieter und mehrere Objekte** in einem Bestand – etwa zwei privat
+  gehaltene Immobilien neben einer GbR mit mehreren Mietobjekten
 
 * Trennung umlagefähiger Kosten (§ 2 BetrKV) von nicht umlagefähigen
   (§ 1 Abs. 2 BetrKV), inklusive begründeter Teilabzüge

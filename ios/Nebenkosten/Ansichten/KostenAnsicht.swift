@@ -7,7 +7,9 @@ struct KostenAnsicht: View {
 
     var body: some View {
         Group {
-            if let index = speicher.aktiverIndex {
+            if speicher.aktivesObjekt == nil {
+                KeinObjekt()
+            } else if let index = speicher.aktiverIndex {
                 inhalt(index)
             } else {
                 KeinZeitraum()
@@ -123,7 +125,7 @@ private struct PositionsAbschnitt: View {
             if position.schluessel == .direkt {
                 Picker("Einheit", selection: $position.direktEinheitId) {
                     Text("– bitte wählen –").tag("")
-                    ForEach(speicher.daten.einheiten) { einheit in
+                    ForEach(speicher.einheiten) { einheit in
                         Text(einheit.bezeichnung).tag(einheit.id)
                     }
                 }

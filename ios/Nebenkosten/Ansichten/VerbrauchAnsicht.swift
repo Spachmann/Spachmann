@@ -12,7 +12,9 @@ struct VerbrauchAnsicht: View {
 
     var body: some View {
         Group {
-            if let index = speicher.aktiverIndex {
+            if speicher.aktivesObjekt == nil {
+                KeinObjekt()
+            } else if let index = speicher.aktiverIndex {
                 inhalt(index)
             } else {
                 KeinZeitraum()
@@ -74,7 +76,7 @@ struct VerbrauchAnsicht: View {
             } header: {
                 Text("Hauptzähler")
             } footer: {
-                Text("Weicht der Hauptzähler von der Summe der Wohnungszähler ab, entsteht Allgemein- und Schwundwasser. Behandlung laut Stammdaten: \(speicher.daten.objekt.verbrauchsdifferenz.kurz). Wird die Differenz nach Wohnfläche verteilt, erscheint sie in der Abrechnung als eigene Zeile.")
+                Text("Weicht der Hauptzähler von der Summe der Wohnungszähler ab, entsteht Allgemein- und Schwundwasser. Behandlung laut Objekteinstellung: \(speicher.aktivesObjekt?.verbrauchsdifferenz.kurz ?? "–"). Wird die Differenz nach Wohnfläche verteilt, erscheint sie in der Abrechnung als eigene Zeile.")
             }
         }
     }
@@ -83,8 +85,8 @@ struct VerbrauchAnsicht: View {
 
     private func zeilen(_ periode: Abrechnungszeitraum) -> [Zeile] {
         var ergebnis: [Zeile] = []
-        for einheit in speicher.daten.einheiten {
-            let mvs = speicher.daten.mietverhaeltnisseZu(einheitId: einheit.id).filter {
+        for einheit in speicher.einheiten {
+            let mvs = speicher.mietverhaeltnisse.filter { $0.einheitId == einheit.id }.filter {
                 Datum.ueberschneidungTage($0.von, $0.ende(spaetestens: periode.bis), periode.von, periode.bis) > 0
             }
             if mvs.count > 1 {

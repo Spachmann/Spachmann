@@ -11,6 +11,7 @@ import { BETRIEBSKOSTEN, NICHT_UMLAGEFAEHIG, SCHLUESSEL, SCHLUESSEL_INFO, kosten
 import { HEIZWERT } from '../core/heizkosten.js';
 import { STUFEN, EMISSIONSFAKTOR } from '../core/co2.js';
 import { istUmlagefaehig, berechneVorauszahlungen } from '../core/abrechnung.js';
+import { RECHTSFORMEN, rechtsform, objekteVon, einheitenVon } from '../core/model.js';
 import { alleDokumente, mieterDokument, vermieterUebersicht } from './dokument.js';
 
 /* --------------------------------------------------------------- Bausteine */
@@ -78,21 +79,37 @@ function meldung(stufe, titel, text, quelle = '') {
 /* ------------------------------------------------------------------ Start */
 
 export function startAnsicht(ctx) {
-  const { daten, periode, ergebnis, pruefergebnis } = ctx;
+  const { daten, bestand, periode, ergebnis, pruefergebnis } = ctx;
 
-  if (!daten.einheiten.length) {
+  if (!daten.vermieter.length || !daten.objekte.length) {
     return (
-      kopf('Nebenkostenabrechnung', 'Erfasse Objekt, Einheiten und Kosten – die App erstellt daraus eine rechtskonforme Abrechnung.') +
+      kopf('Nebenkostenabrechnung', 'Erfasse Vermieter, Objekte, Einheiten und Kosten – die App erstellt daraus eine rechtskonforme Abrechnung.') +
       karte(
         'Willkommen',
         leerzustand(
           '🏠',
           'Noch keine Daten erfasst',
-          'Lege zuerst deine Stammdaten und Wohneinheiten an – oder lade den Beispieldatensatz, um die App auszuprobieren.',
+          'Lege zuerst einen Vermieter und ein Objekt an – oder lade den Beispieldatensatz mit zwei privaten Immobilien und einer GbR, um die App auszuprobieren.',
           `<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
-             <button class="btn primaer" data-aktion="gehe-zu" data-wert="stammdaten">Stammdaten erfassen</button>
+             <button class="btn primaer" data-aktion="gehe-zu" data-wert="vermieter">Vermieter anlegen</button>
              <button class="btn" data-aktion="demo-laden">Beispieldaten laden</button>
            </div>`
+        )
+      )
+    );
+  }
+
+  if (!bestand || !bestand.einheiten.length) {
+    return (
+      kopf('Nebenkostenabrechnung', esc(bestand?.objekt.bezeichnung || '')) +
+      portfolioKarte(ctx) +
+      karte(
+        'Dieses Objekt hat noch keine Einheiten',
+        leerzustand(
+          '🚪',
+          'Keine Wohneinheiten',
+          'Lege für jede vermietbare Einheit dieses Objekts einen Eintrag an – auch für leerstehende.',
+          `<button class="btn primaer" data-aktion="gehe-zu" data-wert="einheiten">Zu den Einheiten</button>`
         )
       )
     );
@@ -145,12 +162,13 @@ export function startAnsicht(ctx) {
 
   return (
     kopf(
-      `Abrechnung ${periode?.jahr ?? ''}`,
-      `${esc(daten.objekt.bezeichnung || daten.objekt.strasse || 'Objekt')} · ${daten.einheiten.length} Einheiten · ${zahl(
-        summe(daten.einheiten.map((e) => e.wohnflaeche || 0))
+      `${esc(bestand.objekt.bezeichnung || bestand.objekt.strasse || 'Objekt')} · ${periode?.jahr ?? ''}`,
+      `${esc(bestand.vermieter.name || 'ohne Vermieter')} · ${bestand.einheiten.length} Einheiten · ${zahl(
+        summe(bestand.einheiten.map((e) => e.wohnflaeche || 0))
       )} m²`,
       `<button class="btn primaer" data-aktion="gehe-zu" data-wert="abrechnung">Abrechnung erzeugen</button>`
     ) +
+    portfolioKarte(ctx) +
     statusMeldung +
     kennzahlen +
     karte('Ergebnis je Mietverhältnis', uebersicht, {
@@ -177,66 +195,208 @@ function schrittKachel(zeichen, titel, zusatz, ziel) {
   </button>`;
 }
 
-/* ------------------------------------------------------------- Stammdaten */
+/* -------------------------------------------------------- Portfolio-Karte */
 
-export function stammdatenAnsicht(ctx) {
+/** Übersicht über alle Objekte, gruppiert nach Vermieter. */
+function portfolioKarte(ctx) {
+  const { daten, bestand } = ctx;
+  if (daten.objekte.length < 2) return '';
+
+  const gruppen = daten.vermieter
+    .map((v) => ({ v, objekte: objekteVon(daten, v.id) }))
+    .filter((g) => g.objekte.length);
+
+  const zeilen = gruppen
+    .map(
+      (g) => `<tr><td colspan="4" style="background:var(--karte-2);font-weight:650">
+        ${esc(g.v.name || 'Ohne Namen')} <span class="fussnote">${esc(rechtsform(g.v.rechtsform).bezeichnung)}</span></td></tr>` +
+        g.objekte
+          .map((o) => {
+            const eigene = einheitenVon(daten, o.id);
+            const aktiv = bestand && o.id === bestand.objekt.id;
+            return `<tr${aktiv ? ' style="background:var(--akzent-weich)"' : ''}>
+              <td><strong>${esc(o.bezeichnung || o.strasse || 'Objekt')}</strong>${
+                aktiv ? ' <span class="merkmal ja">aktiv</span>' : ''
+              }<br><span class="fussnote">${esc([o.strasse, o.ort].filter(Boolean).join(', '))}</span></td>
+              <td class="zahl">${eigene.length}</td>
+              <td class="zahl">${zahl(summe(eigene.map((e) => e.wohnflaeche || 0)))} m²</td>
+              <td class="zahl">${
+                aktiv
+                  ? '<span class="fussnote">wird angezeigt</span>'
+                  : `<button class="btn klein" data-aktion="objekt-waehlen" data-id="${esc(o.id)}">Wechseln</button>`
+              }</td>
+            </tr>`;
+          })
+          .join('')
+    )
+    .join('');
+
+  return karte(
+    `Portfolio – ${daten.objekte.length} Objekte`,
+    `<div class="tabelle-rahmen"><table class="liste">
+      <thead><tr><th>Objekt</th><th class="zahl">Einheiten</th><th class="zahl">Fläche</th><th class="zahl">Aktion</th></tr></thead>
+      <tbody>${zeilen}</tbody>
+    </table></div>`,
+    { hilfe: 'Abgerechnet wird immer je Objekt. Oben links wechselst du zwischen ihnen.' }
+  );
+}
+
+/* --------------------------------------------------------------- Vermieter */
+
+export function vermieterAnsicht(ctx) {
   const { daten } = ctx;
-  const v = daten.vermieter;
-  const o = daten.objekt;
-  const summeFlaeche = summe(daten.einheiten.map((e) => e.wohnflaeche || 0));
+
+  const inhalt = daten.vermieter.length
+    ? daten.vermieter
+        .map((v) => {
+          const eigene = objekteVon(daten, v.id);
+          const form = rechtsform(v.rechtsform);
+          return `<div class="eintrag">
+      <div class="eintrag-kopf">
+        <h3>${esc(v.name || 'Ohne Namen')}</h3>
+        <span class="merkmal neutral">${esc(form.bezeichnung)}</span>
+        <span class="merkmal ${eigene.length ? 'ja' : 'warn'}">${eigene.length} Objekt(e)</span>
+        <div class="rechts">
+          <button class="btn klein gefahr" data-aktion="vermieter-loeschen" data-id="${esc(v.id)}">Löschen</button>
+        </div>
+      </div>
+      <div class="raster">
+        ${txt('Name oder Firma', `vermieter:${v.id}`, 'name', v.name, { platzhalter: 'Kim Spachmann oder Spachmann GbR' })}
+        ${auswahl('Rechtsform', `vermieter:${v.id}`, 'rechtsform', v.rechtsform, RECHTSFORMEN.map((r) => [r.id, r.bezeichnung]))}
+        ${
+          form.vertretungNoetig
+            ? txt('Vertreten durch', `vermieter:${v.id}`, 'vertretenDurch', v.vertretenDurch, {
+                platzhalter: 'Kim Spachmann und Jana Spachmann',
+                notiz: 'Gesellschaften handeln nur durch ihre Vertreter – die Abrechnung muss das erkennen lassen',
+              })
+            : ''
+        }
+        ${txt('Straße und Hausnummer', `vermieter:${v.id}`, 'strasse', v.strasse)}
+        ${txt('PLZ', `vermieter:${v.id}`, 'plz', v.plz)}
+        ${txt('Ort', `vermieter:${v.id}`, 'ort', v.ort)}
+        ${txt('Telefon', `vermieter:${v.id}`, 'telefon', v.telefon, { typ: 'tel' })}
+        ${txt('E-Mail', `vermieter:${v.id}`, 'email', v.email, { typ: 'email' })}
+        ${txt('IBAN', `vermieter:${v.id}`, 'iban', v.iban, { notiz: 'für Nachzahlungen und Erstattungen' })}
+        ${txt('Bank', `vermieter:${v.id}`, 'bank', v.bank)}
+        ${txt('Steuernummer', `vermieter:${v.id}`, 'steuernummer', v.steuernummer, { notiz: 'optional' })}
+      </div>
+      ${
+        eigene.length
+          ? `<p class="fussnote" style="margin-top:10px">Objekte: ${eigene.map((o) => esc(o.bezeichnung || o.strasse)).join(' · ')}</p>`
+          : `<p class="fussnote" style="margin-top:10px">Noch kein Objekt zugeordnet.</p>`
+      }
+    </div>`;
+        })
+        .join('')
+    : leerzustand(
+        '👤',
+        'Kein Vermieter erfasst',
+        'Lege für jede vermietende Partei einen Eintrag an – etwa dich persönlich und daneben eine GbR. Jedem Vermieter ordnest du anschließend seine Objekte zu.',
+        `<button class="btn primaer" data-aktion="vermieter-neu">Vermieter anlegen</button>`
+      );
 
   return (
-    kopf('Stammdaten', 'Vermieter und Abrechnungsobjekt. Diese Angaben erscheinen im Kopf jeder Abrechnung – ohne sie ist die Abrechnung formell angreifbar.') +
-    karte(
-      'Vermieter / Abrechnender',
-      `<div class="raster">
-        ${txt('Name oder Firma', 'vermieter', 'name', v.name, { platzhalter: 'Max Mustermann' })}
-        ${txt('Straße und Hausnummer', 'vermieter', 'strasse', v.strasse)}
-        ${txt('PLZ', 'vermieter', 'plz', v.plz)}
-        ${txt('Ort', 'vermieter', 'ort', v.ort)}
-        ${txt('Telefon', 'vermieter', 'telefon', v.telefon, { typ: 'tel' })}
-        ${txt('E-Mail', 'vermieter', 'email', v.email, { typ: 'email' })}
-        ${txt('IBAN', 'vermieter', 'iban', v.iban, { notiz: 'für Nachzahlungen und Erstattungen' })}
-        ${txt('Bank', 'vermieter', 'bank', v.bank)}
-      </div>`,
-      { hilfe: 'Der Mieter muss erkennen können, wer abrechnet und wo er Belegeinsicht nehmen kann (§ 259 BGB).' }
+    kopf(
+      'Vermieter',
+      'Wer vermietet? Diese Angaben stehen im Kopf jeder Abrechnung. Vermietest du teils privat und teils über eine Gesellschaft, lege beide getrennt an.',
+      `<button class="btn primaer" data-aktion="vermieter-neu">+ Vermieter</button>`
     ) +
-    karte(
-      'Abrechnungsobjekt',
-      `<div class="raster">
-        ${txt('Bezeichnung', 'objekt', 'bezeichnung', o.bezeichnung, { platzhalter: 'Mehrfamilienhaus Gartenstraße 12' })}
-        ${txt('Straße und Hausnummer', 'objekt', 'strasse', o.strasse)}
-        ${txt('PLZ', 'objekt', 'plz', o.plz)}
-        ${txt('Ort', 'objekt', 'ort', o.ort)}
-        ${txt('Gesamtwohnfläche (m²)', 'objekt', 'wohnflaecheGesamt', zahl(o.wohnflaecheGesamt), {
+    karte(`${daten.vermieter.length} Vermieter`, inhalt, {
+      hilfe: 'Der Mieter muss erkennen können, wer abrechnet und wo er Belegeinsicht nehmen kann (§ 259 BGB).',
+    })
+  );
+}
+
+/* ----------------------------------------------------------------- Objekte */
+
+export function objekteAnsicht(ctx) {
+  const { daten, bestand } = ctx;
+
+  if (!daten.vermieter.length) {
+    return (
+      kopf('Objekte', '') +
+      karte('', leerzustand('👤', 'Erst einen Vermieter anlegen', 'Jedes Objekt gehört zu einem Vermieter.',
+        `<button class="btn primaer" data-aktion="gehe-zu" data-wert="vermieter">Zu den Vermietern</button>`))
+    );
+  }
+
+  const vermieterListe = daten.vermieter.map((v) => [v.id, v.name || 'Ohne Namen']);
+
+  const inhalt = daten.objekte.length
+    ? daten.objekte
+        .map((o) => {
+          const eigene = einheitenVon(daten, o.id);
+          const summeFlaeche = summe(eigene.map((e) => e.wohnflaeche || 0));
+          const abweichung = o.wohnflaecheGesamt > 0 && Math.abs(o.wohnflaecheGesamt - summeFlaeche) > 0.5;
+          const aktiv = bestand && o.id === bestand.objekt.id;
+          return `<div class="eintrag">
+      <div class="eintrag-kopf">
+        <h3>${esc(o.bezeichnung || 'Ohne Bezeichnung')}</h3>
+        ${aktiv ? '<span class="merkmal ja">aktiv</span>' : ''}
+        <span class="merkmal neutral">${eigene.length} Einheiten · ${zahl(summeFlaeche)} m²</span>
+        <div class="rechts">
+          ${aktiv ? '' : `<button class="btn klein" data-aktion="objekt-waehlen" data-id="${esc(o.id)}">Auswählen</button>`}
+          <button class="btn klein gefahr" data-aktion="objekt-loeschen" data-id="${esc(o.id)}">Löschen</button>
+        </div>
+      </div>
+      <div class="raster">
+        ${txt('Bezeichnung', `objekt:${o.id}`, 'bezeichnung', o.bezeichnung, { platzhalter: 'Mehrfamilienhaus Gartenstraße 12' })}
+        ${auswahl('Vermieter', `objekt:${o.id}`, 'vermieterId', o.vermieterId, vermieterListe)}
+        ${txt('Straße und Hausnummer', `objekt:${o.id}`, 'strasse', o.strasse)}
+        ${txt('PLZ', `objekt:${o.id}`, 'plz', o.plz)}
+        ${txt('Ort', `objekt:${o.id}`, 'ort', o.ort)}
+        ${txt('Gesamtwohnfläche (m²)', `objekt:${o.id}`, 'wohnflaecheGesamt', zahl(o.wohnflaecheGesamt), {
           typ: 'zahl',
-          notiz: `Summe der erfassten Einheiten: ${zahl(summeFlaeche)} m² <button class="btn schlicht klein" data-aktion="flaeche-uebernehmen">übernehmen</button>`,
+          notiz: `Summe der Einheiten: ${zahl(summeFlaeche)} m² <button class="btn schlicht klein" data-aktion="flaeche-uebernehmen" data-id="${esc(o.id)}">übernehmen</button>`,
         })}
-        ${auswahl('Gebäudetyp', 'objekt', 'gebaeudetyp', o.gebaeudetyp, [
+        ${auswahl('Gebäudetyp', `objekt:${o.id}`, 'gebaeudetyp', o.gebaeudetyp, [
           ['wohn', 'Wohngebäude'],
           ['nichtwohn', 'Nichtwohngebäude'],
         ], 'maßgeblich für die CO₂-Kostenaufteilung')}
-        ${txt('Personen bei Leerstand', 'objekt', 'leerstandPersonen', zahl(o.leerstandPersonen, 0), {
+        ${txt('Personen bei Leerstand', `objekt:${o.id}`, 'leerstandPersonen', zahl(o.leerstandPersonen, 0), {
           typ: 'zahl',
-          notiz: 'Ansatz für den Personenschlüssel in Leerstandszeiten – die Kosten trägt der Vermieter',
+          notiz: 'Ansatz für den Personenschlüssel in Leerstandszeiten',
         })}
-        ${auswahl('Differenz Hauptzähler / Wohnungszähler', 'objekt', 'verbrauchsdifferenz', o.verbrauchsdifferenz, [
+        ${auswahl('Differenz Hauptzähler / Wohnungszähler', `objekt:${o.id}`, 'verbrauchsdifferenz', o.verbrauchsdifferenz, [
           ['verbrauch', 'anteilig auf alle Verbraucher umlegen'],
           ['flaeche', 'nach Wohnfläche umlegen'],
           ['vermieter', 'trägt der Vermieter'],
         ], 'Behandlung von Schwund- und Allgemeinwasser')}
-      </div>`
-    )
+      </div>
+      <div class="feld" style="margin-top:12px">
+        <label>Notiz</label>
+        <textarea data-ziel="objekt:${esc(o.id)}" data-feld="notiz" data-typ="text">${esc(o.notiz || '')}</textarea>
+      </div>
+      ${abweichung ? meldung('warnung', 'Wohnflächen weichen ab', `Summe der Einheiten: <strong>${zahl(summeFlaeche)} m²</strong>, hinterlegt: <strong>${zahl(o.wohnflaecheGesamt)} m²</strong>.`, '§ 556a Abs. 1 BGB') : ''}
+    </div>`;
+        })
+        .join('')
+    : leerzustand(
+        '🏢',
+        'Kein Objekt erfasst',
+        'Lege für jede Immobilie ein Objekt an. Jedes Objekt hat eigene Einheiten, Kosten und Abrechnungszeiträume – abgerechnet wird immer je Objekt.',
+        `<button class="btn primaer" data-aktion="objekt-neu">Objekt anlegen</button>`
+      );
+
+  return (
+    kopf(
+      'Objekte',
+      'Jede Immobilie ist ein eigenes Objekt mit eigenen Einheiten, Kosten und Abrechnungen. Oben links wechselst du zwischen ihnen.',
+      `<button class="btn primaer" data-aktion="objekt-neu">+ Objekt</button>`
+    ) +
+    karte(`${daten.objekte.length} Objekte`, inhalt)
   );
 }
 
 /* --------------------------------------------------------------- Einheiten */
 
 export function einheitenAnsicht(ctx) {
-  const { daten } = ctx;
+  const { bestand } = ctx;
+  if (!bestand) return kopf('Wohneinheiten', '') + keinObjekt();
+  const eigene = bestand.einheiten;
 
-  const inhalt = daten.einheiten.length
-    ? daten.einheiten
+  const inhalt = eigene.length
+    ? eigene
         .map(
           (e) => `<div class="eintrag">
       <div class="eintrag-kopf">
@@ -257,38 +417,39 @@ export function einheitenAnsicht(ctx) {
         .join('')
     : leerzustand('🚪', 'Keine Einheiten', 'Lege für jede vermietbare Wohneinheit einen Eintrag an. Die Wohnfläche ist der gesetzliche Auffangschlüssel (§ 556a Abs. 1 BGB).');
 
-  const summeFlaeche = summe(daten.einheiten.map((e) => e.wohnflaeche || 0));
-  const abweichung = daten.objekt.wohnflaecheGesamt > 0 && Math.abs(daten.objekt.wohnflaecheGesamt - summeFlaeche) > 0.5;
+  const summeFlaeche = summe(eigene.map((e) => e.wohnflaeche || 0));
+  const abweichung = bestand.objekt.wohnflaecheGesamt > 0 && Math.abs(bestand.objekt.wohnflaecheGesamt - summeFlaeche) > 0.5;
 
   return (
-    kopf('Wohneinheiten', 'Alle Einheiten des Objekts – auch leerstehende. Nur so lassen sich Leerstandskosten korrekt beim Vermieter belassen.',
+    kopf('Wohneinheiten', `Alle Einheiten von <strong>${esc(bestand.objekt.bezeichnung || 'diesem Objekt')}</strong> – auch leerstehende. Nur so lassen sich Leerstandskosten korrekt beim Vermieter belassen.`,
       `<button class="btn primaer" data-aktion="einheit-neu">+ Einheit</button>`) +
     (abweichung
       ? meldung(
           'warnung',
           'Wohnflächen weichen ab',
           `Summe der Einheiten: <strong>${zahl(summeFlaeche)} m²</strong>, im Objekt hinterlegt: <strong>${zahl(
-            daten.objekt.wohnflaecheGesamt
-          )} m²</strong>. <button class="btn schlicht klein" data-aktion="flaeche-uebernehmen">Summe übernehmen</button>`
+            bestand.objekt.wohnflaecheGesamt
+          )} m²</strong>. <button class="btn schlicht klein" data-aktion="flaeche-uebernehmen" data-id="${esc(bestand.objekt.id)}">Summe übernehmen</button>`
         )
       : '') +
-    karte(`${daten.einheiten.length} Einheiten · ${zahl(summeFlaeche)} m²`, inhalt)
+    karte(`${esc(bestand.objekt.bezeichnung || 'Objekt')} · ${eigene.length} Einheiten · ${zahl(summeFlaeche)} m²`, inhalt)
   );
 }
 
 /* ---------------------------------------------------------- Mietverhältnis */
 
 export function mieterAnsicht(ctx) {
-  const { daten, periode } = ctx;
-  const einheitenListe = daten.einheiten.map((e) => [e.id, e.bezeichnung]);
+  const { bestand, periode } = ctx;
+  if (!bestand) return kopf('Mietverhältnisse', '') + keinObjekt();
+  const einheitenListe = bestand.einheiten.map((e) => [e.id, e.bezeichnung]);
 
-  if (!daten.einheiten.length) {
+  if (!bestand.einheiten.length) {
     return kopf('Mietverhältnisse', '') + karte('', leerzustand('🚪', 'Erst Einheiten anlegen', 'Ein Mietverhältnis gehört immer zu einer Wohneinheit.',
       `<button class="btn primaer" data-aktion="gehe-zu" data-wert="einheiten">Zu den Einheiten</button>`));
   }
 
-  const inhalt = daten.mietverhaeltnisse.length
-    ? daten.mietverhaeltnisse
+  const inhalt = bestand.mietverhaeltnisse.length
+    ? bestand.mietverhaeltnisse
         .map((m) => {
           const bis = m.bis || (periode ? periode.bis : '');
           const imZeitraum = periode ? tage(periode.von, periode.bis) > 0 : true;
@@ -296,7 +457,7 @@ export function mieterAnsicht(ctx) {
           return `<div class="eintrag">
       <div class="eintrag-kopf">
         <h3>${esc(m.mieterName || 'Neuer Mieter')}</h3>
-        <span class="merkmal neutral">${esc(daten.einheiten.find((e) => e.id === m.einheitId)?.bezeichnung || 'keine Einheit')}</span>
+        <span class="merkmal neutral">${esc(bestand.einheiten.find((e) => e.id === m.einheitId)?.bezeichnung || 'keine Einheit')}</span>
         ${m.bis ? `<span class="merkmal warn">ausgezogen ${dt(m.bis)}</span>` : '<span class="merkmal ja">laufend</span>'}
         <div class="rechts">
           <button class="btn klein gefahr" data-aktion="mv-loeschen" data-id="${esc(m.id)}">Löschen</button>
@@ -342,14 +503,15 @@ export function mieterAnsicht(ctx) {
   return (
     kopf('Mietverhältnisse', 'Beginn, Ende, Personenzahl und Vorauszahlungen. Bei Mieterwechsel einfach zwei Einträge anlegen.',
       `<button class="btn primaer" data-aktion="mv-neu">+ Mietverhältnis</button>`) +
-    karte(`${daten.mietverhaeltnisse.length} Mietverhältnisse`, inhalt)
+    karte(`${esc(bestand.objekt.bezeichnung || 'Objekt')} · ${bestand.mietverhaeltnisse.length} Mietverhältnisse`, inhalt)
   );
 }
 
 /* ------------------------------------------------------------------ Kosten */
 
 export function kostenAnsicht(ctx) {
-  const { daten, periode } = ctx;
+  const { bestand, periode } = ctx;
+  if (!bestand) return kopf('Kosten', '') + keinObjekt();
   if (!periode) return kopf('Kosten', '') + keineAbrechnung();
 
   const umlagefaehige = periode.positionen.filter((p) => istUmlagefaehig(p));
@@ -360,7 +522,7 @@ export function kostenAnsicht(ctx) {
 
   return (
     kopf(
-      `Kosten ${periode.jahr}`,
+      `Kosten ${periode.jahr} · ${esc(bestand.objekt.bezeichnung || 'Objekt')}`,
       'Erfasse jede Rechnung einmal. Die Kostenart bestimmt, ob umgelegt werden darf – Verwaltung und Instandhaltung landen automatisch beim Vermieter.',
       `<button class="btn primaer" data-aktion="position-neu">+ Position</button>`
     ) +
@@ -375,7 +537,7 @@ export function kostenAnsicht(ctx) {
     karte(
       'Kostenpositionen',
       periode.positionen.length
-        ? periode.positionen.map((p) => positionKarte(p, daten)).join('')
+        ? periode.positionen.map((p) => positionKarte(p, bestand)).join('')
         : leerzustand(
             '🧾',
             'Noch keine Kosten erfasst',
@@ -412,7 +574,7 @@ export function kostenAnsicht(ctx) {
   );
 }
 
-function positionKarte(p, daten) {
+function positionKarte(p, bestand) {
   const art = kostenart(p.kostenartId);
   const umlage = istUmlagefaehig(p);
   const netto = Math.max(0, (p.betragBrutto || 0) - (p.abzugBetrag || 0));
@@ -452,7 +614,7 @@ function positionKarte(p, daten) {
       }
       ${
         p.schluessel === SCHLUESSEL.DIREKT
-          ? auswahl('Einheit', `position:${p.id}`, 'direktEinheitId', p.direktEinheitId, [['', '– bitte wählen –'], ...daten.einheiten.map((e) => [e.id, e.bezeichnung])])
+          ? auswahl('Einheit', `position:${p.id}`, 'direktEinheitId', p.direktEinheitId, [['', '– bitte wählen –'], ...bestand.einheiten.map((e) => [e.id, e.bezeichnung])])
           : ''
       }
       ${
@@ -521,7 +683,8 @@ function istUmlagefaehigArt(id) {
 /* ----------------------------------------------------------------- Heizung */
 
 export function heizungAnsicht(ctx) {
-  const { daten, periode, ergebnis } = ctx;
+  const { bestand, periode, ergebnis } = ctx;
+  if (!bestand) return kopf('Heizung & Warmwasser', '') + keinObjekt();
   if (!periode) return kopf('Heizung & Warmwasser', '') + keineAbrechnung();
 
   const h = periode.heizung;
@@ -711,7 +874,8 @@ function heizErgebnisTabelle(heiz, ergebnis) {
 /* ---------------------------------------------------------------- Verbrauch */
 
 export function verbrauchAnsicht(ctx) {
-  const { daten, periode } = ctx;
+  const { bestand, periode } = ctx;
+  if (!bestand) return kopf('Verbräuche', '') + keinObjekt();
   if (!periode) return kopf('Verbräuche', '') + keineAbrechnung();
 
   const arten = [
@@ -722,8 +886,8 @@ export function verbrauchAnsicht(ctx) {
 
   // Zeilen: je Einheit und – bei Mieterwechsel – je Mietverhältnis
   const zeilen = [];
-  for (const e of daten.einheiten) {
-    const mvs = daten.mietverhaeltnisse.filter(
+  for (const e of bestand.einheiten) {
+    const mvs = bestand.mietverhaeltnisse.filter(
       (m) => m.einheitId === e.id && tage(maxDatum(m.von, periode.von), minDatum(m.bis || periode.bis, periode.bis)) > 0
     );
     if (mvs.length > 1) {
@@ -774,7 +938,7 @@ export function verbrauchAnsicht(ctx) {
     karte(
       'Hauptzähler',
       `<p class="fussnote">Weicht der Hauptzähler von der Summe der Wohnungszähler ab, entsteht Schwund- oder Allgemeinwasser. Wie damit umgegangen wird, stellst du in den Stammdaten ein (aktuell: <strong>${esc(
-        { verbrauch: 'anteilig auf alle Verbraucher', flaeche: 'nach Wohnfläche', vermieter: 'trägt der Vermieter' }[daten.objekt.verbrauchsdifferenz]
+        { verbrauch: 'anteilig auf alle Verbraucher', flaeche: 'nach Wohnfläche', vermieter: 'trägt der Vermieter' }[bestand.objekt.verbrauchsdifferenz]
       )}</strong>).</p>
       <div class="raster">
         ${txt('Hauptzähler Kaltwasser (m³)', 'periode', 'hauptzaehler.kaltwasser', zahl(periode.hauptzaehler.kaltwasser, 1), { typ: 'zahl' })}
@@ -847,7 +1011,8 @@ function anforderung(text, quelle, erfuellt) {
 /* -------------------------------------------------------------- Abrechnung */
 
 export function abrechnungAnsicht(ctx) {
-  const { daten, periode, ergebnis, pruefergebnis, dokumentAuswahl } = ctx;
+  const { bestand, periode, ergebnis, pruefergebnis, dokumentAuswahl } = ctx;
+  if (!bestand) return kopf('Abrechnung', '') + keinObjekt();
   if (!periode || !ergebnis) return kopf('Abrechnung', '') + keineAbrechnung();
 
   const auswahlOptionen = [
@@ -858,17 +1023,17 @@ export function abrechnungAnsicht(ctx) {
 
   let dokument;
   if (dokumentAuswahl === 'intern') {
-    dokument = vermieterUebersicht(daten, periode, ergebnis);
+    dokument = vermieterUebersicht(bestand, periode, ergebnis);
   } else if (dokumentAuswahl === 'alle' || !dokumentAuswahl) {
-    dokument = alleDokumente(daten, periode, ergebnis);
+    dokument = alleDokumente(bestand, periode, ergebnis);
   } else {
     const e = ergebnis.ergebnisse.find((x) => x.mietverhaeltnisId === dokumentAuswahl);
-    dokument = e ? mieterDokument(daten, periode, ergebnis, e) : '<div class="blatt"><p>Nicht gefunden.</p></div>';
+    dokument = e ? mieterDokument(bestand, periode, ergebnis, e) : '<div class="blatt"><p>Nicht gefunden.</p></div>';
   }
 
   return (
     kopf(
-      'Abrechnung',
+      `Abrechnung ${periode.jahr} · ${esc(bestand.objekt.bezeichnung || 'Objekt')}`,
       'Druckfertiges Dokument im A4-Format. Auf dem iPad: Teilen → Drucken → mit zwei Fingern aufziehen → In Dateien sichern ergibt eine PDF-Datei.',
       `<button class="btn primaer" data-aktion="drucken">Drucken / als PDF sichern</button>`
     ) +
@@ -903,15 +1068,15 @@ export function abrechnungAnsicht(ctx) {
 /* ------------------------------------------------------------------- Daten */
 
 export function datenAnsicht(ctx) {
-  const { daten } = ctx;
+  const { daten, bestand, zeitraeume } = ctx;
   return (
     kopf('Daten & Sicherung', 'Alle Daten liegen ausschließlich lokal auf diesem Gerät. Es findet keine Übertragung an Server statt.') +
     karte(
-      'Abrechnungszeiträume',
-      daten.abrechnungen.length
+      `Abrechnungszeiträume – ${esc(bestand?.objekt.bezeichnung || 'kein Objekt gewählt')}`,
+      zeitraeume.length
         ? `<div class="tabelle-rahmen"><table class="liste">
         <thead><tr><th>Jahr</th><th>Zeitraum</th><th class="zahl">Positionen</th><th class="zahl">Aktion</th></tr></thead>
-        <tbody>${daten.abrechnungen
+        <tbody>${zeitraeume
           .map(
             (a) => `<tr>
           <td><strong>${a.jahr}</strong></td>
@@ -925,8 +1090,11 @@ export function datenAnsicht(ctx) {
           )
           .join('')}</tbody>
       </table></div>`
-        : '<p>Noch kein Abrechnungszeitraum angelegt.</p>',
-      { rechts: `<button class="btn klein primaer" data-aktion="abrechnung-neu">+ Zeitraum</button>` }
+        : '<p>Für dieses Objekt ist noch kein Abrechnungszeitraum angelegt.</p>',
+      {
+        hilfe: 'Jedes Objekt hat eigene Abrechnungszeiträume.',
+        rechts: `<button class="btn klein primaer" data-aktion="abrechnung-neu">+ Zeitraum</button>`,
+      }
     ) +
     karte(
       'Sicherung',
@@ -955,6 +1123,14 @@ export function datenAnsicht(ctx) {
         Mietvertrag. Die automatische Prüfung ersetzt keine rechtliche Beratung.
       </p>`
     )
+  );
+}
+
+function keinObjekt() {
+  return karte(
+    '',
+    leerzustand('🏢', 'Kein Objekt gewählt', 'Lege zuerst einen Vermieter und ein Objekt an – jede Immobilie wird für sich abgerechnet.',
+      `<button class="btn primaer" data-aktion="gehe-zu" data-wert="objekte">Zu den Objekten</button>`)
   );
 }
 

@@ -250,10 +250,10 @@ final class HeizkostenTests: XCTestCase {
 
 final class NutzungszeitraumTests: XCTestCase {
 
-    private let daten = Demodaten.erzeuge()
+    private let bestand = Demodaten.erzeuge().bestand(fuerObjekt: "o1")!
 
     func testMieterwechselErzeugtAbschnitteSamtLeerstandsluecke() {
-        let nutzeinheiten = Abrechnung.bildeNutzeinheiten(daten, von: "2024-01-01", bis: "2024-12-31")
+        let nutzeinheiten = Abrechnung.bildeNutzeinheiten(bestand, von: "2024-01-01", bis: "2024-12-31")
         let e3 = nutzeinheiten.filter { $0.einheitId == "e3" }
 
         XCTAssertEqual(e3.count, 3)
@@ -267,7 +267,7 @@ final class NutzungszeitraumTests: XCTestCase {
     }
 
     func testDurchgehendesMietverhaeltnisErzeugtEinenAbschnitt() {
-        let nutzeinheiten = Abrechnung.bildeNutzeinheiten(daten, von: "2024-01-01", bis: "2024-12-31")
+        let nutzeinheiten = Abrechnung.bildeNutzeinheiten(bestand, von: "2024-01-01", bis: "2024-12-31")
         let e1 = nutzeinheiten.filter { $0.einheitId == "e1" }
         XCTAssertEqual(e1.count, 1)
         XCTAssertEqual(e1[0].tage, 366)
@@ -295,6 +295,8 @@ final class NutzungszeitraumTests: XCTestCase {
 final class VerteilungTests: XCTestCase {
 
     private let daten = Demodaten.erzeuge()
+    private lazy var bestand = daten.bestand(fuerObjekt: "o1")!
+    private var periode: Abrechnungszeitraum { daten.abrechnungenZu(objektId: "o1")[0] }
 
     private func kontext(_ periode: Abrechnungszeitraum, differenz: Verbrauchsdifferenz) -> Abrechnung.Verteilungskontext {
         Abrechnung.Verteilungskontext(
@@ -305,8 +307,7 @@ final class VerteilungTests: XCTestCase {
     }
 
     func testFlaechenschluesselVerteiltZeitanteiligUndVollstaendig() {
-        let periode = daten.abrechnungen[0]
-        let nutzeinheiten = Abrechnung.bildeNutzeinheiten(daten, von: periode.von, bis: periode.bis)
+        let nutzeinheiten = Abrechnung.bildeNutzeinheiten(bestand, von: periode.von, bis: periode.bis)
         let position = Position(kostenartId: "grundsteuer", schluessel: .flaeche, betragBrutto: 100_000)
         let verteilung = Abrechnung.verteile(position, auf: nutzeinheiten, kontext: kontext(periode, differenz: .flaeche))
 
@@ -316,8 +317,7 @@ final class VerteilungTests: XCTestCase {
     }
 
     func testKostenEinesTeilzeitraumsTreffenNurDieDortigenNutzer() {
-        let periode = daten.abrechnungen[0]
-        let nutzeinheiten = Abrechnung.bildeNutzeinheiten(daten, von: periode.von, bis: periode.bis)
+        let nutzeinheiten = Abrechnung.bildeNutzeinheiten(bestand, von: periode.von, bis: periode.bis)
         var position = Position(kostenartId: "gartenpflege", schluessel: .flaeche, betragBrutto: 100_000)
         position.zeitraumVon = "2024-09-01"
         position.zeitraumBis = "2024-12-31"
@@ -331,8 +331,7 @@ final class VerteilungTests: XCTestCase {
     }
 
     func testDirektzuordnungBelastetNurDieGewaehlteEinheit() {
-        let periode = daten.abrechnungen[0]
-        let nutzeinheiten = Abrechnung.bildeNutzeinheiten(daten, von: periode.von, bis: periode.bis)
+        let nutzeinheiten = Abrechnung.bildeNutzeinheiten(bestand, von: periode.von, bis: periode.bis)
         var position = Position(kostenartId: "sonstige", schluessel: .direkt, betragBrutto: 50_000)
         position.direktEinheitId = "e2"
 
@@ -348,8 +347,7 @@ final class VerteilungTests: XCTestCase {
     }
 
     func testZaehlerdifferenzWirdAlsEigeneNachpruefbareZeileAusgewiesen() {
-        let periode = daten.abrechnungen[0]
-        let nutzeinheiten = Abrechnung.bildeNutzeinheiten(daten, von: periode.von, bis: periode.bis)
+        let nutzeinheiten = Abrechnung.bildeNutzeinheiten(bestand, von: periode.von, bis: periode.bis)
         let summeZaehler = periode.verbraeuche.filter { $0.art == .kaltwasser }.map(\.wert).summe
         let hauptzaehler = periode.hauptzaehler.kaltwasser
         XCTAssertGreaterThan(hauptzaehler, summeZaehler, "Demodaten müssen eine Zählerdifferenz enthalten")
@@ -373,8 +371,7 @@ final class VerteilungTests: XCTestCase {
     }
 
     func testZaehlerdifferenzZulastenDesVermietersBleibtBeimVermieter() {
-        let periode = daten.abrechnungen[0]
-        let nutzeinheiten = Abrechnung.bildeNutzeinheiten(daten, von: periode.von, bis: periode.bis)
+        let nutzeinheiten = Abrechnung.bildeNutzeinheiten(bestand, von: periode.von, bis: periode.bis)
         let summeZaehler = periode.verbraeuche.filter { $0.art == .kaltwasser }.map(\.wert).summe
         let hauptzaehler = periode.hauptzaehler.kaltwasser
 
@@ -394,8 +391,9 @@ final class VerteilungTests: XCTestCase {
 final class GesamtabrechnungTests: XCTestCase {
 
     private let daten = Demodaten.erzeuge()
-    private var periode: Abrechnungszeitraum { daten.abrechnungen[0] }
-    private lazy var ergebnis = Abrechnung.berechne(daten, periode)
+    private lazy var bestand = daten.bestand(fuerObjekt: "o1")!
+    private var periode: Abrechnungszeitraum { daten.abrechnungenZu(objektId: "o1")[0] }
+    private lazy var ergebnis = Abrechnung.berechne(bestand, periode)
 
     private func mieter(_ name: String) -> Abrechnung.Mieterergebnis {
         ergebnis.ergebnisse.first { $0.mieterName == name }!
@@ -557,13 +555,15 @@ final class GesamtabrechnungTests: XCTestCase {
 final class PruefungTests: XCTestCase {
 
     private let daten = Demodaten.erzeuge()
+    private lazy var bestand = daten.bestand(fuerObjekt: "o1")!
+    private var basis: Abrechnungszeitraum { daten.abrechnungenZu(objektId: "o1")[0] }
 
     private func pruefe(_ periode: Abrechnungszeitraum) -> Pruefung.Ergebnis {
-        Pruefung.pruefe(daten, periode, Abrechnung.berechne(daten, periode))
+        Pruefung.pruefe(bestand, periode, Abrechnung.berechne(bestand, periode))
     }
 
     func testDemodatenSindAbrechnungsfaehig() {
-        let ergebnis = pruefe(daten.abrechnungen[0])
+        let ergebnis = pruefe(basis)
         XCTAssertTrue(ergebnis.abrechnungsfaehig,
                       ergebnis.gefiltert(.fehler).map(\.titel).joined(separator: " | "))
         XCTAssertEqual(ergebnis.fehler, 0)
@@ -571,32 +571,32 @@ final class PruefungTests: XCTestCase {
     }
 
     func testZeitraumUeberZwoelfMonateIstEinFehler() {
-        var periode = daten.abrechnungen[0]
+        var periode = basis
         periode.bis = "2025-03-31"
         XCTAssertTrue(pruefe(periode).gefiltert(.fehler).contains { $0.titel.contains("zwölf Monate") })
     }
 
     func testVersaeumteAbrechnungsfristSperrtNachforderungen() {
-        var periode = daten.abrechnungen[0]
+        var periode = basis
         periode.zugestelltAm = "2026-02-01"
         XCTAssertTrue(pruefe(periode).gefiltert(.fehler).contains { $0.titel == "Abrechnungsfrist versäumt" })
     }
 
     func testSonstigeBetriebskostenOhneVereinbarungSindEinFehler() {
-        var periode = daten.abrechnungen[0]
+        var periode = basis
         let index = periode.positionen.firstIndex { $0.kostenartId == "sonstige" }!
         periode.positionen[index].imMietvertragVereinbart = false
         XCTAssertTrue(pruefe(periode).gefiltert(.fehler).contains { $0.titel.contains("Sonstige Betriebskosten nicht vereinbart") })
     }
 
     func testUnzulaessigerVerbrauchsanteilWirdErkannt() {
-        var periode = daten.abrechnungen[0]
+        var periode = basis
         periode.heizung.anteilVerbrauchHeizung = 0.8
         XCTAssertTrue(pruefe(periode).gefiltert(.fehler).contains { $0.titel.contains("Verbrauchsanteil Heizung") })
     }
 
     func testKabelTVNachDem30Juni2024LoestWarnungAus() {
-        var periode = daten.abrechnungen[0]
+        var periode = basis
         var position = Position(kostenartId: "antenne_breitband", schluessel: .einheiten, betragBrutto: 50_000)
         position.bezeichnung = "Kabelanschluss"
         periode.positionen.append(position)
@@ -604,14 +604,14 @@ final class PruefungTests: XCTestCase {
     }
 
     func testHauswartOhneAbzugLoestWarnungAus() {
-        var periode = daten.abrechnungen[0]
+        var periode = basis
         let index = periode.positionen.firstIndex { $0.kostenartId == "hauswart" }!
         periode.positionen[index].abzugBetrag = 0
         XCTAssertTrue(pruefe(periode).gefiltert(.warnung).contains { $0.titel == "Hauswartkosten ohne Abzug" })
     }
 
     func testNutzerwechselErzeugtHinweisAufZwischenablesung() {
-        XCTAssertTrue(pruefe(daten.abrechnungen[0]).befunde.contains { $0.titel.hasPrefix("Nutzerwechsel") })
+        XCTAssertTrue(pruefe(basis).befunde.contains { $0.titel.hasPrefix("Nutzerwechsel") })
     }
 }
 
@@ -622,15 +622,22 @@ final class ModellTests: XCTestCase {
         let roh = try JSONEncoder().encode(original)
         let gelesen = try JSONDecoder().decode(Datenbestand.self, from: roh)
 
+        XCTAssertEqual(gelesen.vermieter.count, original.vermieter.count)
+        XCTAssertEqual(gelesen.objekte.map(\.id), original.objekte.map(\.id))
         XCTAssertEqual(gelesen.einheiten.count, original.einheiten.count)
         XCTAssertEqual(gelesen.mietverhaeltnisse.count, original.mietverhaeltnisse.count)
-        XCTAssertEqual(gelesen.abrechnungen[0].positionen.count, original.abrechnungen[0].positionen.count)
-        XCTAssertEqual(gelesen.abrechnungen[0].heizung.co2.emissionKg, 8442)
+        XCTAssertEqual(gelesen.abrechnungenZu(objektId: "o1")[0].positionen.count,
+                       original.abrechnungenZu(objektId: "o1")[0].positionen.count)
+        XCTAssertEqual(gelesen.abrechnungenZu(objektId: "o1")[0].heizung.co2.emissionKg, 8442)
 
-        // Auch das Rechenergebnis muss identisch bleiben.
-        let a = Abrechnung.berechne(original, original.abrechnungen[0])
-        let b = Abrechnung.berechne(gelesen, gelesen.abrechnungen[0])
-        XCTAssertEqual(a.summen.aufMieterUmgelegt, b.summen.aufMieterUmgelegt)
+        // Auch die Rechenergebnisse müssen für jedes Objekt identisch bleiben.
+        for objekt in original.objekte {
+            let a = Abrechnung.berechne(original.bestand(fuerObjekt: objekt.id)!,
+                                        original.abrechnungenZu(objektId: objekt.id)[0])
+            let b = Abrechnung.berechne(gelesen.bestand(fuerObjekt: objekt.id)!,
+                                        gelesen.abrechnungenZu(objektId: objekt.id)[0])
+            XCTAssertEqual(a.summen.aufMieterUmgelegt, b.summen.aufMieterUmgelegt, objekt.bezeichnung)
+        }
     }
 
     func testFehlendeFelderWerdenAufStandardwerteGelesen() throws {
@@ -646,20 +653,76 @@ final class ModellTests: XCTestCase {
         XCTAssertEqual(daten.abrechnungen[0].bis, "2023-12-31")
         XCTAssertEqual(daten.abrechnungen[0].heizung.anteilVerbrauchHeizung, 0.7)
         XCTAssertEqual(daten.abrechnungen[0].positionen[0].abzugBetrag, 0)
-        XCTAssertEqual(daten.vermieter.name, "")
-        XCTAssertEqual(daten.objekt.leerstandPersonen, 1)
+    }
+
+    func testSicherungDerFassung1WirdAufDieMehrobjektstrukturGehoben() throws {
+        // Fassung 1 kannte genau einen Vermieter und genau ein Objekt.
+        let json = """
+        {"vermieter":{"name":"Kim Spachmann","ort":"Stuttgart"},
+         "objekt":{"bezeichnung":"Haus A","strasse":"Weg 1","wohnflaecheGesamt":120},
+         "einheiten":[{"id":"e1","bezeichnung":"W1","wohnflaeche":60}],
+         "mietverhaeltnisse":[{"id":"m1","einheitId":"e1","mieterName":"Frau A"}],
+         "abrechnungen":[{"id":"a1","jahr":2023,"positionen":[{"id":"p1","kostenartId":"grundsteuer"}]}]}
+        """
+        let daten = try JSONDecoder().decode(Datenbestand.self, from: Data(json.utf8))
+
+        XCTAssertEqual(daten.version, Modell.version)
+        XCTAssertEqual(daten.vermieter.count, 1)
+        XCTAssertEqual(daten.vermieter[0].name, "Kim Spachmann")
+        XCTAssertEqual(daten.vermieter[0].rechtsform, .privat)
+        XCTAssertEqual(daten.objekte.count, 1)
+        XCTAssertEqual(daten.objekte[0].bezeichnung, "Haus A")
+        XCTAssertEqual(daten.objekte[0].vermieterId, daten.vermieter[0].id)
+
+        // Einheiten und Abrechnungen hängen danach am migrierten Objekt.
+        XCTAssertEqual(daten.einheiten[0].objektId, daten.objekte[0].id)
+        XCTAssertEqual(daten.abrechnungen[0].objektId, daten.objekte[0].id)
+
+        // Und der migrierte Bestand ist unmittelbar rechenbar.
+        let bestand = daten.bestand(fuerObjekt: daten.objekte[0].id)
+        XCTAssertEqual(bestand?.einheiten.count, 1)
+        XCTAssertEqual(bestand?.mietverhaeltnisse.count, 1)
+        XCTAssertEqual(bestand?.vermieter.name, "Kim Spachmann")
+        XCTAssertEqual(bestand?.massgeblicheWohnflaeche, 120)
+    }
+
+    func testSicherungDerFassung2BleibtUnveraendert() throws {
+        let original = Demodaten.erzeuge()
+        let gelesen = try JSONDecoder().decode(Datenbestand.self, from: try JSONEncoder().encode(original))
+
+        XCTAssertEqual(gelesen.vermieter.map(\.id), ["v1", "v2"])
+        XCTAssertEqual(gelesen.objekte.map(\.id), ["o1", "o2", "o3", "o4"])
+        XCTAssertEqual(gelesen.objekte.map(\.vermieterId), original.objekte.map(\.vermieterId))
+        XCTAssertEqual(gelesen.vermieter[1].vertretenDurch, "Kim Spachmann und Jana Spachmann")
+    }
+
+    func testUnvollstaendigeZuordnungenWerdenRepariert() throws {
+        // Eine Einheit ohne Objektbezug darf den Bestand nicht unbrauchbar machen.
+        let json = """
+        {"vermieter":[{"id":"v9","name":"A"}],
+         "objekte":[{"id":"o9","vermieterId":"unbekannt","bezeichnung":"Haus"}],
+         "einheiten":[{"id":"e1","bezeichnung":"W1"}],
+         "abrechnungen":[{"id":"a1","jahr":2024}]}
+        """
+        let daten = try JSONDecoder().decode(Datenbestand.self, from: Data(json.utf8))
+
+        XCTAssertEqual(daten.objekte[0].vermieterId, "v9")
+        XCTAssertEqual(daten.einheiten[0].objektId, "o9")
+        XCTAssertEqual(daten.abrechnungen[0].objektId, "o9")
+        XCTAssertEqual(daten.bestand(fuerObjekt: "o9")?.einheiten.count, 1)
     }
 }
 
 final class DokumentTests: XCTestCase {
 
     private let daten = Demodaten.erzeuge()
+    private lazy var bestand = daten.bestand(fuerObjekt: "o1")!
+    private var periode: Abrechnungszeitraum { daten.abrechnungenZu(objektId: "o1")[0] }
 
     func testMieterdokumentEnthaeltDieVierFormellenMindestangaben() {
-        let periode = daten.abrechnungen[0]
-        let ergebnis = Abrechnung.berechne(daten, periode)
+        let ergebnis = Abrechnung.berechne(bestand, periode)
         let mieter = ergebnis.ergebnisse.first { $0.mieterName == "Familie Aydin" }!
-        let html = DokumentHTML.mieterdokument(daten, periode, ergebnis, mieter)
+        let html = DokumentHTML.mieterdokument(bestand, periode, ergebnis, mieter)
 
         // 1. Gesamtkosten je Kostenart
         XCTAssertTrue(html.contains("Gesamtkosten, Verteilerschlüssel und Ihr Anteil"))
@@ -679,10 +742,9 @@ final class DokumentTests: XCTestCase {
     }
 
     func testMieterdokumentEnthaeltKeineNichtUmlagefaehigenPositionen() {
-        let periode = daten.abrechnungen[0]
-        let ergebnis = Abrechnung.berechne(daten, periode)
+        let ergebnis = Abrechnung.berechne(bestand, periode)
         for mieter in ergebnis.ergebnisse {
-            let html = DokumentHTML.mieterdokument(daten, periode, ergebnis, mieter)
+            let html = DokumentHTML.mieterdokument(bestand, periode, ergebnis, mieter)
             XCTAssertFalse(html.contains("Hausverwaltung 2024"), mieter.mieterName)
             XCTAssertFalse(html.contains("Reparatur Steigleitung"), mieter.mieterName)
             XCTAssertFalse(html.contains("Kabel-TV-Sammelvertrag"), mieter.mieterName)
@@ -690,9 +752,8 @@ final class DokumentTests: XCTestCase {
     }
 
     func testVermieteruebersichtStelltBeideKostenartenGegenueber() {
-        let periode = daten.abrechnungen[0]
-        let ergebnis = Abrechnung.berechne(daten, periode)
-        let html = DokumentHTML.vermieteruebersicht(daten, periode, ergebnis)
+        let ergebnis = Abrechnung.berechne(bestand, periode)
+        let html = DokumentHTML.vermieteruebersicht(bestand, periode, ergebnis)
 
         XCTAssertTrue(html.contains("Umlagefähige Betriebskosten"))
         XCTAssertTrue(html.contains("Nicht umlagefähige Kosten"))
@@ -700,7 +761,175 @@ final class DokumentTests: XCTestCase {
         XCTAssertTrue(html.contains("Nicht zur Weitergabe an Mieter bestimmt"))
     }
 
+    func testJedesDokumentNenntDenVermieterDesJeweiligenObjekts() {
+        for objekt in daten.objekte {
+            let bestand = daten.bestand(fuerObjekt: objekt.id)!
+            let periode = daten.abrechnungenZu(objektId: objekt.id)[0]
+            let ergebnis = Abrechnung.berechne(bestand, periode)
+            let html = DokumentHTML.alleMieterdokumente(bestand, periode, ergebnis)
+
+            XCTAssertEqual(bestand.vermieter.id, objekt.vermieterId, objekt.bezeichnung)
+            XCTAssertTrue(html.contains(DokumentHTML.esc(bestand.vermieter.name)), objekt.bezeichnung)
+            XCTAssertTrue(html.contains(DokumentHTML.esc(objekt.anschrift)), objekt.bezeichnung)
+
+            // Kein anderes Objekt darf im Dokument auftauchen.
+            for fremd in daten.objekte where fremd.id != objekt.id {
+                XCTAssertFalse(html.contains(DokumentHTML.esc(fremd.bezeichnung)),
+                               "\(objekt.bezeichnung) nennt \(fremd.bezeichnung)")
+            }
+        }
+    }
+
+    func testGbRDokumentNenntDieVertretungsberechtigten() {
+        let bestand = daten.bestand(fuerObjekt: "o3")!
+        let periode = daten.abrechnungenZu(objektId: "o3")[0]
+        let ergebnis = Abrechnung.berechne(bestand, periode)
+        let html = DokumentHTML.alleMieterdokumente(bestand, periode, ergebnis)
+
+        XCTAssertEqual(bestand.vermieter.rechtsform, .gbr)
+        XCTAssertTrue(html.contains("vertreten durch"))
+        XCTAssertTrue(html.contains(DokumentHTML.esc("Kim Spachmann und Jana Spachmann")))
+    }
+
     func testTextWirdMaskiert() {
         XCTAssertEqual(DokumentHTML.esc("<b>A & B</b>"), "&lt;b&gt;A &amp; B&lt;/b&gt;")
+    }
+}
+
+/// Zwei Vermieter mit insgesamt vier Objekten: privat gehaltene Immobilien und
+/// eine GbR. Jedes Objekt wird für sich abgerechnet und darf die übrigen nicht
+/// beeinflussen.
+final class MehrobjektTests: XCTestCase {
+
+    func testBeispielbestandEnthaeltZweiVermieterUndVierObjekte() {
+        let daten = Demodaten.erzeuge()
+        XCTAssertEqual(daten.vermieter.count, 2)
+        XCTAssertEqual(daten.objekte.count, 4)
+        XCTAssertEqual(daten.objekteZu(vermieterId: "v1").count, 2)   // privat
+        XCTAssertEqual(daten.objekteZu(vermieterId: "v2").count, 2)   // GbR
+        XCTAssertEqual(daten.vermieter[0].rechtsform, .privat)
+        XCTAssertEqual(daten.vermieter[1].rechtsform, .gbr)
+        XCTAssertTrue(daten.vermieter[1].rechtsform.vertretungNoetig)
+    }
+
+    func testJedesObjektSiehtNurSeineEigenenEinheitenUndMieter() {
+        let daten = Demodaten.erzeuge()
+        var alleEinheiten = Set<String>()
+        var alleMieter = Set<String>()
+
+        for objekt in daten.objekte {
+            let bestand = daten.bestand(fuerObjekt: objekt.id)!
+            XCTAssertEqual(bestand.objekt.id, objekt.id)
+
+            for einheit in bestand.einheiten {
+                XCTAssertEqual(einheit.objektId, objekt.id, einheit.bezeichnung)
+                XCTAssertFalse(alleEinheiten.contains(einheit.id), "Einheit in zwei Objekten")
+                alleEinheiten.insert(einheit.id)
+            }
+            for mv in bestand.mietverhaeltnisse {
+                XCTAssertNotNil(bestand.einheit(mv.einheitId), mv.mieterName)
+                XCTAssertFalse(alleMieter.contains(mv.id), "Mietverhältnis in zwei Objekten")
+                alleMieter.insert(mv.id)
+            }
+        }
+
+        // Es geht nichts verloren.
+        XCTAssertEqual(alleEinheiten.count, daten.einheiten.count)
+        XCTAssertEqual(alleMieter.count, daten.mietverhaeltnisse.count)
+    }
+
+    func testKostenEinesObjektsWirkenSichNichtAufAndereAus() {
+        var daten = Demodaten.erzeuge()
+
+        func umlagen(_ daten: Datenbestand) -> [Cent] {
+            daten.objekte.map { objekt in
+                Abrechnung.berechne(daten.bestand(fuerObjekt: objekt.id)!,
+                                    daten.abrechnungenZu(objektId: objekt.id)[0]).summen.aufMieterUmgelegt
+            }
+        }
+
+        let vorher = umlagen(daten)
+
+        // Im ersten Objekt eine große Position ergänzen
+        let index = daten.abrechnungen.firstIndex { $0.objektId == "o1" }!
+        daten.abrechnungen[index].positionen.append(
+            Position(kostenartId: "gartenpflege", schluessel: .flaeche, betragBrutto: 500_000))
+
+        let nachher = umlagen(daten)
+        XCTAssertGreaterThan(nachher[0], vorher[0], "Objekt 1 muss teurer werden")
+        XCTAssertEqual(Array(nachher.dropFirst()), Array(vorher.dropFirst()),
+                       "die übrigen Objekte dürfen sich nicht ändern")
+    }
+
+    func testJedesObjektDesBeispielbestandsIstAbrechnungsfaehig() {
+        let daten = Demodaten.erzeuge()
+        for objekt in daten.objekte {
+            let bestand = daten.bestand(fuerObjekt: objekt.id)!
+            let zeitraeume = daten.abrechnungenZu(objektId: objekt.id)
+            XCTAssertFalse(zeitraeume.isEmpty, "\(objekt.bezeichnung) ohne Abrechnungszeitraum")
+
+            let ergebnis = Abrechnung.berechne(bestand, zeitraeume[0])
+            let pruefung = Pruefung.pruefe(bestand, zeitraeume[0], ergebnis)
+            XCTAssertTrue(pruefung.abrechnungsfaehig,
+                          "\(objekt.bezeichnung): \(pruefung.gefiltert(.fehler).map(\.titel).joined(separator: " | "))")
+            XCTAssertEqual(ergebnis.ergebnisse.count, bestand.mietverhaeltnisse.count, objekt.bezeichnung)
+            XCTAssertGreaterThan(ergebnis.summen.umlagefaehig, 0, objekt.bezeichnung)
+        }
+    }
+
+    func testHeizkostenNurBeiObjektenMitZentralerAnlage() {
+        let daten = Demodaten.erzeuge()
+
+        func heizung(_ objektId: String) -> Heizkosten.Ergebnis? {
+            Abrechnung.berechne(daten.bestand(fuerObjekt: objektId)!,
+                                daten.abrechnungenZu(objektId: objektId)[0]).heizung
+        }
+
+        XCTAssertNotNil(heizung("o1"))    // Zentralheizung
+        XCTAssertNil(heizung("o2"))       // Etagenheizungen
+        XCTAssertNotNil(heizung("o3"))    // Zentralheizung
+        XCTAssertNil(heizung("o4"))
+    }
+
+    func testFehlendeVertretungEinerGbRWirdBemaengelt() {
+        var daten = Demodaten.erzeuge()
+        let objekt = daten.objekteZu(vermieterId: "v2")[0]
+        let periode = daten.abrechnungenZu(objektId: objekt.id)[0]
+
+        func befunde() -> [Pruefung.Befund] {
+            let bestand = daten.bestand(fuerObjekt: objekt.id)!
+            return Pruefung.pruefe(bestand, periode, Abrechnung.berechne(bestand, periode)).befunde
+        }
+
+        // Mit Vertretung: kein Befund
+        XCTAssertFalse(befunde().contains { $0.titel.contains("Vertretung") })
+
+        // Ohne Vertretung: Warnung
+        let index = daten.vermieter.firstIndex { $0.id == "v2" }!
+        daten.vermieter[index].vertretenDurch = ""
+        XCTAssertTrue(befunde().contains { $0.stufe == .warnung && $0.titel.contains("Vertretung") })
+    }
+
+    func testZugriffsfunktionenLiefernDieZuordnungJeObjekt() {
+        let daten = Demodaten.erzeuge()
+        XCTAssertEqual(daten.einheitenZu(objektId: "o1").count, 4)
+        XCTAssertEqual(daten.einheitenZu(objektId: "o2").count, 2)
+        XCTAssertEqual(daten.mietverhaeltnisseZu(objektId: "o1").count, 5)
+        XCTAssertEqual(daten.mietverhaeltnisseZu(objektId: "o3").count, 3)
+        XCTAssertEqual(daten.abrechnungenZu(objektId: "o4").count, 1)
+        XCTAssertNil(daten.bestand(fuerObjekt: "gibtesnicht"))
+        XCTAssertNil(daten.objektMit(id: "gibtesnicht"))
+        XCTAssertEqual(daten.vermieterMit(id: "v2")?.name, "Spachmann & Partner GbR")
+    }
+
+    func testMassgeblicheWohnflaecheFaelltAufDieSummeDerEinheitenZurueck() {
+        var daten = Demodaten.erzeuge()
+        XCTAssertEqual(daten.bestand(fuerObjekt: "o1")!.massgeblicheWohnflaeche, 250)
+
+        let index = daten.objekte.firstIndex { $0.id == "o1" }!
+        daten.objekte[index].wohnflaecheGesamt = 0
+        let bestand = daten.bestand(fuerObjekt: "o1")!
+        XCTAssertEqual(bestand.massgeblicheWohnflaeche, bestand.summeWohnflaechen)
+        XCTAssertEqual(bestand.summeWohnflaechen, 250, accuracy: 0.001)
     }
 }

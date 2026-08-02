@@ -57,17 +57,17 @@ enum Pruefung {
 
     // MARK: - Einstieg
 
-    static func pruefe(_ daten: Datenbestand, _ periode: Abrechnungszeitraum, _ ergebnis: Abrechnung.Ergebnis?) -> Ergebnis {
+    static func pruefe(_ bestand: Objektbestand, _ periode: Abrechnungszeitraum, _ ergebnis: Abrechnung.Ergebnis?) -> Ergebnis {
         var befunde: [Befund] = []
         func melde(_ stufe: Stufe, _ titel: String, _ text: String, _ quelle: String = "") {
             befunde.append(Befund(stufe: stufe, titel: titel, text: text, quelle: quelle))
         }
 
-        pruefeStammdaten(daten, melde)
+        pruefeStammdaten(bestand, melde)
         pruefeZeitraum(periode, ergebnis, melde)
-        pruefeEinheiten(daten, melde)
-        pruefeMietverhaeltnisse(daten, periode, melde)
-        pruefePositionen(daten, periode, ergebnis, melde)
+        pruefeEinheiten(bestand, melde)
+        pruefeMietverhaeltnisse(bestand, periode, melde)
+        pruefePositionen(bestand, periode, ergebnis, melde)
         pruefeHeizung(periode, ergebnis, melde)
         pruefeErgebnis(ergebnis, melde)
 
@@ -79,8 +79,8 @@ enum Pruefung {
 
     // MARK: - Einzelprüfungen
 
-    private static func pruefeStammdaten(_ daten: Datenbestand, _ melde: Melder) {
-        let v = daten.vermieter
+    private static func pruefeStammdaten(_ bestand: Objektbestand, _ melde: Melder) {
+        let v = bestand.vermieter
         if v.name.isEmpty {
             melde(.fehler, "Vermieter fehlt",
                   "Die Abrechnung muss erkennen lassen, wer sie erteilt. Ohne Angabe des Vermieters ist sie formell unwirksam.",
@@ -91,7 +91,12 @@ enum Pruefung {
                   "Der Mieter muss den Abrechnenden erreichen können, unter anderem zur Ausübung des Belegeinsichtsrechts.",
                   "§ 259 BGB")
         }
-        if daten.objekt.strasse.isEmpty || daten.objekt.ort.isEmpty {
+        if v.rechtsform.vertretungNoetig && v.vertretenDurch.isEmpty {
+            melde(.warnung, "Vertretung des Vermieters nicht angegeben",
+                  "Vermieter ist eine \(v.rechtsform.bezeichnung). Die Abrechnung sollte erkennen lassen, wer für sie handelt – trage die vertretungsberechtigten Personen unter „vertreten durch“ ein. Bei einer GbR ist das besonders wichtig, weil sie nur durch ihre Gesellschafter auftreten kann.",
+                  "§ 259 BGB, § 709 BGB")
+        }
+        if bestand.objekt.strasse.isEmpty || bestand.objekt.ort.isEmpty {
             melde(.fehler, "Objektanschrift fehlt",
                   "Die Abrechnung muss das Abrechnungsobjekt eindeutig bezeichnen.",
                   "BGH VIII ZR 84/07")
@@ -139,15 +144,15 @@ enum Pruefung {
         }
     }
 
-    private static func pruefeEinheiten(_ daten: Datenbestand, _ melde: Melder) {
-        guard !daten.einheiten.isEmpty else {
+    private static func pruefeEinheiten(_ bestand: Objektbestand, _ melde: Melder) {
+        guard !bestand.einheiten.isEmpty else {
             melde(.fehler, "Keine Einheiten erfasst",
                   "Ohne Wohneinheiten lässt sich kein Verteilerschlüssel bilden.",
                   "§ 556a BGB")
             return
         }
 
-        let ohneFlaeche = daten.einheiten.filter { $0.wohnflaeche <= 0 }
+        let ohneFlaeche = bestand.einheiten.filter { $0.wohnflaeche <= 0 }
         if !ohneFlaeche.isEmpty {
             let namen = ohneFlaeche.map(\.bezeichnung).joined(separator: ", ")
             melde(.fehler, "Wohnfläche fehlt",
@@ -155,16 +160,16 @@ enum Pruefung {
                   "§ 556a Abs. 1 Satz 1 BGB")
         }
 
-        let summeFlaechen = daten.summeWohnflaechen
-        let gesamt = daten.objekt.wohnflaecheGesamt
+        let summeFlaechen = bestand.summeWohnflaechen
+        let gesamt = bestand.objekt.wohnflaecheGesamt
         if gesamt > 0, abs(gesamt - summeFlaechen) / gesamt > 0.005 {
             melde(.warnung, "Wohnflächen stimmen nicht überein",
                   "Die Summe der Einheiten beträgt \(Geld.zahl(summeFlaechen)) m², im Objekt sind \(Geld.zahl(gesamt)) m² hinterlegt. Abweichungen führen dazu, dass zu viel oder zu wenig umgelegt wird.",
                   "§ 556a Abs. 1 BGB")
         }
 
-        let mea = daten.einheiten.map(\.mea).summe
-        if daten.einheiten.contains(where: { $0.mea > 0 }),
+        let mea = bestand.einheiten.map(\.mea).summe
+        if bestand.einheiten.contains(where: { $0.mea > 0 }),
            abs(mea - 1000) > 0.5, abs(mea - 100) > 0.5, abs(mea - 10000) > 0.5 {
             melde(.hinweis, "Miteigentumsanteile prüfen",
                   "Die Miteigentumsanteile summieren sich auf \(Geld.zahl(mea)). Übliche Bezugsgrößen sind 100, 1.000 oder 10.000.",
@@ -172,8 +177,8 @@ enum Pruefung {
         }
     }
 
-    private static func pruefeMietverhaeltnisse(_ daten: Datenbestand, _ periode: Abrechnungszeitraum, _ melde: Melder) {
-        let imZeitraum = daten.mietverhaeltnisse.filter {
+    private static func pruefeMietverhaeltnisse(_ bestand: Objektbestand, _ periode: Abrechnungszeitraum, _ melde: Melder) {
+        let imZeitraum = bestand.mietverhaeltnisse.filter {
             Datum.ueberschneidungTage($0.von, $0.ende(spaetestens: periode.bis), periode.von, periode.bis) > 0
         }
 
@@ -199,7 +204,7 @@ enum Pruefung {
                       "Der Abzug der geleisteten Vorauszahlungen gehört zu den formellen Mindestangaben. Sind tatsächlich keine vereinbart, ist das in Ordnung – sonst nachtragen.",
                       "BGH VIII ZR 84/07")
             }
-            if daten.einheit(mv.einheitId) == nil {
+            if bestand.einheit(mv.einheitId) == nil {
                 melde(.fehler, "Mietverhältnis \(mv.mieterName) ohne Einheit",
                       "Dem Mietverhältnis ist keine gültige Wohneinheit zugeordnet.", "")
             }
@@ -209,7 +214,7 @@ enum Pruefung {
         var jeEinheit: [String: Int] = [:]
         for mv in imZeitraum { jeEinheit[mv.einheitId, default: 0] += 1 }
         for (einheitId, anzahl) in jeEinheit where anzahl > 1 {
-            let name = daten.einheit(einheitId)?.bezeichnung ?? einheitId
+            let name = bestand.einheit(einheitId)?.bezeichnung ?? einheitId
             melde(.warnung, "Nutzerwechsel in \(name)",
                   "Bei einem Nutzerwechsel ist eine Zwischenablesung der Verbrauchserfassungsgeräte vorzunehmen. Ohne Zwischenablesung wird der Verbrauch hier nur zeitanteilig geschätzt.",
                   "§ 9b HeizkostenV")
@@ -217,7 +222,7 @@ enum Pruefung {
     }
 
     private static func pruefePositionen(
-        _ daten: Datenbestand,
+        _ bestand: Objektbestand,
         _ periode: Abrechnungszeitraum,
         _ ergebnis: Abrechnung.Ergebnis?,
         _ melde: Melder
@@ -301,7 +306,7 @@ enum Pruefung {
         melde(.hinweis, "Wirtschaftlichkeitsgebot beachten",
               "Der Vermieter darf nur Kosten umlegen, die bei wirtschaftlicher Betrachtung erforderlich waren. Auffällig teure Positionen sollten belegbar begründet sein.",
               "§ 556 Abs. 3 Satz 1 Halbsatz 2 BGB")
-        _ = daten
+        _ = bestand
     }
 
     private static func pruefeHeizung(_ periode: Abrechnungszeitraum, _ ergebnis: Abrechnung.Ergebnis?, _ melde: Melder) {

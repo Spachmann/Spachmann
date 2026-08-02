@@ -13,6 +13,10 @@ trennt umlagefähige von nicht umlagefähigen Kosten, rechnet bei Mieterwechsel
 tagegenau ab und erzeugt ein druckfertiges A4-Dokument mit allen Angaben, die
 der Bundesgerichtshof verlangt.
 
+Sie verwaltet dabei **mehrere Vermieter mit mehreren Objekten**: dich privat
+mit deinen beiden Immobilien und daneben die GbR mit ihren Mietobjekten.
+Abgerechnet wird immer je Objekt, die Daten der Objekte bleiben getrennt.
+
 Es gibt sie in **zwei Fassungen**, die fachlich identisch rechnen:
 
 | | **Web-App** | **Native App** |
@@ -130,20 +134,27 @@ wählen, dann **⌘R**. Ohne Signierung, nur zum Anschauen.
 
 Gilt für beide Fassungen. Zum Kennenlernen:
 **Daten & Sicherung → Beispieldaten laden** – danach zeigen alle Bereiche ein
-vollständiges Mehrfamilienhaus mit Mieterwechsel, Heizkosten und
-CO₂-Aufteilung.
+vollständiges Portfolio: zwei privat gehaltene Immobilien und eine GbR mit zwei
+weiteren Objekten, mit Mieterwechsel, Heizkosten und CO₂-Aufteilung.
 
 Für die eigene Abrechnung in dieser Reihenfolge:
 
-1. **Stammdaten** – Vermieter und Objekt
-2. **Wohneinheiten** – jede Einheit mit Wohnfläche, auch leerstehende
-3. **Mietverhältnisse** – Mieter, Zeiträume, Personen, Vorauszahlungen
-4. **Daten & Sicherung** – Abrechnungszeitraum anlegen, etwa 2024
-5. **Kosten** – jede Rechnung als Position, Kostenart aus dem Katalog wählen
-6. **Heizung & Warmwasser** – falls zentral geheizt wird
-7. **Verbräuche** – Zählerstände eintragen
-8. **Rechtsprüfung** – Fehler und Warnungen abarbeiten
-9. **Dokument** – Vorschau prüfen und PDF erzeugen
+1. **Vermieter** – dich selbst und, falls vorhanden, die GbR anlegen.
+   Bei einer GbR gehört unter *Vertreten durch* hinein, wer sie vertritt.
+2. **Objekte** – jede Immobilie anlegen und dem richtigen Vermieter zuordnen
+3. **Wohneinheiten** – jede Einheit mit Wohnfläche, auch leerstehende
+4. **Mietverhältnisse** – Mieter, Zeiträume, Personen, Vorauszahlungen
+5. **Daten & Sicherung** – Abrechnungszeitraum anlegen, etwa 2024
+6. **Kosten** – jede Rechnung als Position, Kostenart aus dem Katalog wählen
+7. **Heizung & Warmwasser** – falls zentral geheizt wird
+8. **Verbräuche** – Zählerstände eintragen
+9. **Rechtsprüfung** – Fehler und Warnungen abarbeiten
+10. **Dokument** – Vorschau prüfen und PDF erzeugen
+
+Die Schritte 3 bis 10 gelten **je Objekt**. Welches Objekt gemeint ist, wählst
+du oben in der Seitenleiste – dort stehen alle Objekte, nach Vermieter
+gruppiert. Für das zweite Haus und für jedes Objekt der GbR wiederholst du die
+Schritte also einmal; die Daten bleiben sauber getrennt.
 
 Im Bereich **Dokument** schaltest du oben um zwischen allen Mieterabrechnungen,
 einer einzelnen Abrechnung und der **internen Kostenübersicht**, die
@@ -188,7 +199,7 @@ Zwei Fälle, in denen das zählt:
 
 **Zur nativen Fassung:** Der Swift-Code wurde in einer Umgebung ohne
 Swift-Compiler geschrieben und ist deshalb nie übersetzt worden. Die
-Rechenlogik ist über 61 Tests gegen die geprüfte Web-Fassung abgesichert, aber
+Rechenlogik ist über 74 Tests gegen die geprüfte Web-Fassung abgesichert, aber
 `swift test` ist der erste Schritt, bevor du Zeit in die Oberfläche steckst.
 
 **Zum Recht:** Die App setzt §§ 556, 556a BGB, die Betriebskostenverordnung,

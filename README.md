@@ -3,8 +3,10 @@
 iPad-App zur Erfassung von Betriebskosten und Erstellung rechtskonformer
 Nebenkostenabrechnungen für Mieter.
 
-Die App trennt umlagefähige von nicht umlagefähigen Kosten, rechnet tagegenau
-bei Mieterwechsel und Leerstand ab, wendet die Heizkostenverordnung und die
+Die App verwaltet **mehrere Vermieter mit mehreren Objekten** – etwa zwei
+privat gehaltene Immobilien neben einer GbR mit mehreren Mietobjekten. Sie
+trennt umlagefähige von nicht umlagefähigen Kosten, rechnet tagegenau bei
+Mieterwechsel und Leerstand ab, wendet die Heizkostenverordnung und die
 CO₂-Kostenaufteilung an und erzeugt ein druckfertiges A4-Dokument, das die vom
 BGH geforderten formellen Mindestangaben enthält.
 
@@ -59,6 +61,29 @@ E-Mail versenden.
 ---
 
 ## Was die App abdeckt
+
+### Mehrere Vermieter und mehrere Objekte
+
+Die App verwaltet ein ganzes Portfolio in einem Bestand:
+
+* **Vermieter** – beliebig viele, jeweils mit Rechtsform: Privatperson,
+  Eheleute, **GbR**, Wohnungseigentümergemeinschaft, GmbH/UG oder Sonstige.
+  Bei Gesellschaften wird zusätzlich erfasst, wer sie vertritt; die Angabe
+  erscheint im Briefkopf und unter der Unterschrift
+  („*Spachmann & Partner GbR, vertreten durch …*"). Fehlt sie bei einer
+  Gesellschaft, meldet die Rechtsprüfung eine Warnung (§ 709 BGB).
+* **Objekte** – jede Immobilie gehört genau einem Vermieter. Eine Privatperson
+  mit zwei Häusern und eine GbR mit mehreren Mietobjekten lassen sich also
+  parallel führen, ohne die Daten zu vermischen.
+* **Abgerechnet wird immer je Objekt.** Einheiten, Mietverhältnisse,
+  Abrechnungsjahre, Kosten und Verbräuche hängen am jeweiligen Objekt.
+  Das oben in der Seitenleiste gewählte Objekt bestimmt, was die Bereiche
+  Kosten, Heizung, Verbräuche, Prüfung und Dokument zeigen.
+
+Das ist auch rechtlich der richtige Zuschnitt: Verteilerschlüssel,
+Gesamtwohnfläche, Heizkostenverordnung und CO₂-Stufenmodell beziehen sich immer
+auf das einzelne Gebäude. Die Übersicht zeigt zusätzlich das gesamte Portfolio,
+nach Vermieter gruppiert.
 
 ### Trennung umlagefähig / nicht umlagefähig
 
@@ -184,18 +209,20 @@ bestimmt gekennzeichnet.
 | Verbräuche | Zählerstände je Einheit bzw. je Nutzer |
 | Rechtsprüfung | Fehler, Warnungen, Hinweise |
 | Dokument | Vorschau und Druck der Abrechnungen |
-| Stammdaten | Vermieter und Objekt |
-| Wohneinheiten | Alle Einheiten des Objekts, auch leerstehende |
+| Vermieter | Alle Vermieter: Privatperson, Eheleute, GbR, WEG, GmbH |
+| Objekte | Alle Immobilien, jeweils einem Vermieter zugeordnet |
+| Wohneinheiten | Alle Einheiten des gewählten Objekts, auch leerstehende |
 | Mietverhältnisse | Mieter, Zeiträume, Personen, Vorauszahlungen |
 | Daten & Sicherung | Abrechnungsjahre, Export/Import, Beispieldaten |
 
-Empfohlene Reihenfolge beim ersten Mal: Stammdaten → Wohneinheiten →
+Empfohlene Reihenfolge beim ersten Mal: Vermieter → Objekte → Wohneinheiten →
 Mietverhältnisse → Abrechnungsjahr anlegen → Kosten → Heizung → Verbräuche →
 Rechtsprüfung → Dokument.
 
 Über **Daten & Sicherung → Beispieldaten laden** lässt sich ein vollständiges
-Mehrfamilienhaus mit Mieterwechsel, Leerstand, Heizkosten und CO₂-Aufteilung
-laden, um die App auszuprobieren.
+Beispiel-Portfolio laden: zwei privat gehaltene Immobilien und eine GbR mit
+zwei weiteren Objekten, darunter Mieterwechsel, Leerstand, Heizkosten und
+CO₂-Aufteilung.
 
 **Sicherungen** regelmäßig anlegen: Die Daten liegen im lokalen Speicher des
 Browsers. Werden Safari-Daten gelöscht oder das Gerät zurückgesetzt, sind sie
@@ -239,7 +266,7 @@ Fließkomma-Rundungsfehler in die Abrechnung geraten.
 ## Entwicklung
 
 ```bash
-npm test                        # Rechenkern (53 Tests, keine Abhängigkeiten)
+npm test                        # Rechenkern (62 Tests, keine Abhängigkeiten)
 node tools/oberflaeche-pruefen.js   # alle Ansichten im Browser laden
 node tools/icons-erzeugen.js        # Icons neu rendern
 ```

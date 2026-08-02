@@ -37,7 +37,7 @@ if (screenshotDir) mkdirSync(screenshotDir, { recursive: true });
 
 const ANSICHTEN = [
   'start', 'kosten', 'heizung', 'verbrauch', 'pruefung',
-  'abrechnung', 'stammdaten', 'einheiten', 'mieter', 'daten',
+  'abrechnung', 'vermieter', 'objekte', 'einheiten', 'mieter', 'daten',
 ];
 
 const pruefDatei = join(WURZEL, 'pruefseite.html');

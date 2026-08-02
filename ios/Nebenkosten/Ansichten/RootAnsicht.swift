@@ -2,7 +2,7 @@ import SwiftUI
 
 enum Bereich: String, CaseIterable, Identifiable {
     case uebersicht, kosten, heizung, verbrauch, pruefung, dokument
-    case stammdaten, einheiten, mieter, daten
+    case vermieter, objekte, einheiten, mieter, daten
 
     var id: String { rawValue }
 
@@ -14,7 +14,8 @@ enum Bereich: String, CaseIterable, Identifiable {
         case .verbrauch: return "Verbräuche"
         case .pruefung: return "Rechtsprüfung"
         case .dokument: return "Dokument"
-        case .stammdaten: return "Stammdaten"
+        case .vermieter: return "Vermieter"
+        case .objekte: return "Objekte"
         case .einheiten: return "Wohneinheiten"
         case .mieter: return "Mietverhältnisse"
         case .daten: return "Daten & Sicherung"
@@ -29,7 +30,8 @@ enum Bereich: String, CaseIterable, Identifiable {
         case .verbrauch: return "drop"
         case .pruefung: return "checkmark.seal"
         case .dokument: return "doc.richtext"
-        case .stammdaten: return "building.2"
+        case .vermieter: return "person.crop.square"
+        case .objekte: return "building.2"
         case .einheiten: return "door.left.hand.closed"
         case .mieter: return "person.2"
         case .daten: return "externaldrive"
@@ -39,7 +41,7 @@ enum Bereich: String, CaseIterable, Identifiable {
     var gruppe: String {
         switch self {
         case .uebersicht, .kosten, .heizung, .verbrauch, .pruefung, .dokument: return "Abrechnung"
-        case .stammdaten, .einheiten, .mieter, .daten: return "Stammdaten"
+        case .vermieter, .objekte, .einheiten, .mieter, .daten: return "Stammdaten"
         }
     }
 
@@ -58,19 +60,45 @@ struct RootAnsicht: View {
         } detail: {
             NavigationStack {
                 inhalt
-                    .navigationTitle((auswahl ?? .uebersicht).titel)
+                    .navigationTitle(titel)
                     .navigationBarTitleDisplayMode(.large)
             }
         }
         .navigationSplitViewStyle(.balanced)
     }
 
+    /// Im Abrechnungsteil steht das Objekt im Titel – bei mehreren Objekten ist
+    /// sonst nicht erkennbar, worauf sich die Zahlen beziehen.
+    private var titel: String {
+        let bereich = auswahl ?? .uebersicht
+        guard bereich.gruppe == "Abrechnung", let objekt = speicher.aktivesObjekt else { return bereich.titel }
+        return "\(bereich.titel) · \(objekt.anzeigename)"
+    }
+
     private var seitenleiste: some View {
         List(selection: $auswahl) {
-            if !speicher.daten.abrechnungen.isEmpty {
+            if !speicher.daten.objekte.isEmpty {
+                Section("Objekt") {
+                    Picker("Objekt", selection: objektAuswahl) {
+                        ForEach(speicher.daten.vermieter) { vermieter in
+                            let eigene = speicher.daten.objekteZu(vermieterId: vermieter.id)
+                            if !eigene.isEmpty {
+                                Section(vermieter.name.isEmpty ? "Ohne Namen" : vermieter.name) {
+                                    ForEach(eigene) { objekt in
+                                        Text(objekt.anzeigename).tag(objekt.id)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    .pickerStyle(.menu)
+                }
+            }
+
+            if !speicher.zeitraeume.isEmpty {
                 Section("Abrechnungsjahr") {
                     Picker("Jahr", selection: jahrAuswahl) {
-                        ForEach(speicher.daten.abrechnungen) { abrechnung in
+                        ForEach(speicher.zeitraeume) { abrechnung in
                             Text(String(abrechnung.jahr)).tag(abrechnung.id)
                         }
                     }
@@ -94,9 +122,15 @@ struct RootAnsicht: View {
         .listStyle(.sidebar)
     }
 
+    private var objektAuswahl: Binding<String> {
+        Binding(
+            get: { speicher.aktivesObjektId ?? speicher.daten.objekte.first?.id ?? "" },
+            set: { speicher.aktivesObjektId = $0 })
+    }
+
     private var jahrAuswahl: Binding<String> {
         Binding(
-            get: { speicher.aktiveAbrechnungId ?? speicher.daten.abrechnungen.first?.id ?? "" },
+            get: { speicher.aktiveAbrechnungId ?? speicher.zeitraeume.first?.id ?? "" },
             set: { speicher.aktiveAbrechnungId = $0 })
     }
 
@@ -128,10 +162,14 @@ struct RootAnsicht: View {
         case .kosten:
             let anzahl = speicher.aktiveAbrechnung?.positionen.count ?? 0
             return anzahl > 0 ? String(anzahl) : nil
+        case .vermieter:
+            return speicher.daten.vermieter.isEmpty ? nil : String(speicher.daten.vermieter.count)
+        case .objekte:
+            return speicher.daten.objekte.isEmpty ? nil : String(speicher.daten.objekte.count)
         case .einheiten:
-            return speicher.daten.einheiten.isEmpty ? nil : String(speicher.daten.einheiten.count)
+            return speicher.einheiten.isEmpty ? nil : String(speicher.einheiten.count)
         case .mieter:
-            return speicher.daten.mietverhaeltnisse.isEmpty ? nil : String(speicher.daten.mietverhaeltnisse.count)
+            return speicher.mietverhaeltnisse.isEmpty ? nil : String(speicher.mietverhaeltnisse.count)
         default:
             return nil
         }
@@ -151,11 +189,32 @@ struct RootAnsicht: View {
         case .verbrauch: VerbrauchAnsicht()
         case .pruefung: PruefungAnsicht()
         case .dokument: DokumentAnsicht()
-        case .stammdaten: StammdatenAnsicht()
+        case .vermieter: VermieterAnsicht()
+        case .objekte: ObjekteAnsicht()
         case .einheiten: EinheitenAnsicht()
         case .mieter: MieterAnsicht()
         case .daten: DatenAnsicht()
         }
+    }
+}
+
+/// Hinweis, solange kein Objekt angelegt ist.
+struct KeinObjekt: View {
+    @EnvironmentObject private var speicher: Datenspeicher
+
+    var body: some View {
+        Leerzustand(
+            symbol: "building.2",
+            titel: "Kein Objekt gewählt",
+            text: "Lege zuerst einen Vermieter und ein Objekt an – jede Immobilie wird für sich abgerechnet.",
+            aktionstitel: speicher.daten.vermieter.isEmpty ? "Vermieter anlegen" : "Objekt anlegen",
+            aktion: {
+                if speicher.daten.vermieter.isEmpty {
+                    speicher.legeVermieterAn()
+                } else {
+                    speicher.legeObjektAn()
+                }
+            })
     }
 }
 
@@ -167,7 +226,7 @@ struct KeinZeitraum: View {
         Leerzustand(
             symbol: "calendar.badge.plus",
             titel: "Kein Abrechnungszeitraum",
-            text: "Lege zuerst einen Abrechnungszeitraum an, zum Beispiel das vergangene Kalenderjahr.",
+            text: "Für dieses Objekt ist noch kein Zeitraum angelegt – üblicherweise das vergangene Kalenderjahr.",
             aktionstitel: "Zeitraum anlegen",
             aktion: {
                 let jahr = Datum.jahr(von: Datum.heute()) - 1

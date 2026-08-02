@@ -1,19 +1,23 @@
 /**
  * Anwendungsgerüst: Navigation, Datenbindung und Aktionen.
+ *
+ * Der Bestand kann mehrere Vermieter mit je mehreren Objekten enthalten.
+ * Gearbeitet wird immer auf einem ausgewählten Objekt und einem seiner
+ * Abrechnungszeiträume; die Rechenkerne bekommen den passenden Ausschnitt.
  */
 
 import * as store from './store.js';
-import { $, $$, esc, melde, frage, setzePfad } from './ui/dom.js';
+import { $, esc, melde, frage, setzePfad } from './ui/dom.js';
 import { parseBetrag, parseZahl } from './core/money.js';
 import { heute } from './core/datum.js';
 import { berechneAbrechnung } from './core/abrechnung.js';
 import { pruefe } from './core/pruefung.js';
-import { neueEinheit, neuesMietverhaeltnis, neuePosition, id } from './core/model.js';
-import { BETRIEBSKOSTEN, kostenart, SCHLUESSEL } from './core/katalog.js';
+import { neuePosition, id, einheitenVon, objekteVon } from './core/model.js';
+import { BETRIEBSKOSTEN, kostenart } from './core/katalog.js';
 import { EMISSIONSFAKTOR } from './core/co2.js';
 import { HEIZWERT } from './core/heizkosten.js';
 import {
-  startAnsicht, stammdatenAnsicht, einheitenAnsicht, mieterAnsicht,
+  startAnsicht, vermieterAnsicht, objekteAnsicht, einheitenAnsicht, mieterAnsicht,
   kostenAnsicht, heizungAnsicht, verbrauchAnsicht, pruefungAnsicht,
   abrechnungAnsicht, datenAnsicht,
 } from './ui/views.js';
@@ -25,7 +29,8 @@ const ANSICHTEN = [
   { id: 'verbrauch', titel: 'Verbräuche', icon: '💧', gruppe: 'Abrechnung', render: verbrauchAnsicht },
   { id: 'pruefung', titel: 'Rechtsprüfung', icon: '⚖️', gruppe: 'Abrechnung', render: pruefungAnsicht },
   { id: 'abrechnung', titel: 'Dokument', icon: '📄', gruppe: 'Abrechnung', render: abrechnungAnsicht },
-  { id: 'stammdaten', titel: 'Stammdaten', icon: '🏢', gruppe: 'Stammdaten', render: stammdatenAnsicht },
+  { id: 'vermieter', titel: 'Vermieter', icon: '👤', gruppe: 'Stammdaten', render: vermieterAnsicht },
+  { id: 'objekte', titel: 'Objekte', icon: '🏢', gruppe: 'Stammdaten', render: objekteAnsicht },
   { id: 'einheiten', titel: 'Wohneinheiten', icon: '🚪', gruppe: 'Stammdaten', render: einheitenAnsicht },
   { id: 'mieter', titel: 'Mietverhältnisse', icon: '👥', gruppe: 'Stammdaten', render: mieterAnsicht },
   { id: 'daten', titel: 'Daten & Sicherung', icon: '💾', gruppe: 'Stammdaten', render: datenAnsicht },
@@ -40,20 +45,22 @@ const zustand = {
 
 function baueKontext() {
   const daten = store.hole();
+  const bestand = store.bestand();
   const periode = store.aktiveAbrechnung();
+  const zeitraeume = store.zeitraeume();
   let ergebnis = null;
   let pruefergebnis = null;
 
-  if (periode && daten.einheiten.length) {
+  if (bestand && periode && bestand.einheiten.length) {
     try {
-      ergebnis = berechneAbrechnung(daten, periode);
-      pruefergebnis = pruefe(daten, periode, ergebnis);
+      ergebnis = berechneAbrechnung(bestand, periode);
+      pruefergebnis = pruefe(bestand, periode, ergebnis);
     } catch (fehler) {
       console.error('Berechnung fehlgeschlagen:', fehler);
     }
   }
 
-  return { daten, periode, ergebnis, pruefergebnis, dokumentAuswahl: zustand.dokumentAuswahl };
+  return { daten, bestand, periode, zeitraeume, ergebnis, pruefergebnis, dokumentAuswahl: zustand.dokumentAuswahl };
 }
 
 /* --------------------------------------------------------------- Rendern */
@@ -78,8 +85,7 @@ function render() {
 }
 
 function navigation(ctx) {
-  const { daten, periode, pruefergebnis } = ctx;
-  const jahre = daten.abrechnungen.map((a) => a);
+  const { daten, bestand, periode, zeitraeume, pruefergebnis } = ctx;
 
   const gruppen = new Map();
   for (const a of ANSICHTEN) {
@@ -89,9 +95,10 @@ function navigation(ctx) {
 
   const zaehler = {
     kosten: periode?.positionen.length || 0,
-    einheiten: daten.einheiten.length,
-    mieter: daten.mietverhaeltnisse.length,
-    verbrauch: periode?.verbraeuche.filter((v) => v.wert > 0).length || 0,
+    einheiten: bestand?.einheiten.length || 0,
+    mieter: bestand?.mietverhaeltnisse.length || 0,
+    objekte: daten.objekte.length,
+    vermieter: daten.vermieter.length,
   };
 
   const punkte = [...gruppen.entries()]
@@ -117,11 +124,34 @@ function navigation(ctx) {
     )
     .join('');
 
-  const jahrWahl = jahre.length
+  // Objektauswahl, nach Vermieter gruppiert
+  const objektWahl = daten.objekte.length
+    ? `<div class="nav-gruppe">
+      <div class="nav-titel">Objekt</div>
+      <select data-aktion="objekt-waehlen-select" style="font-size:15px">
+        ${daten.vermieter
+          .map((v) => {
+            const eigene = objekteVon(daten, v.id);
+            if (!eigene.length) return '';
+            return `<optgroup label="${esc(v.name || 'Ohne Namen')}">${eigene
+              .map(
+                (o) =>
+                  `<option value="${esc(o.id)}"${bestand?.objekt.id === o.id ? ' selected' : ''}>${esc(
+                    o.bezeichnung || o.strasse || 'Objekt'
+                  )}</option>`
+              )
+              .join('')}</optgroup>`;
+          })
+          .join('')}
+      </select>
+    </div>`
+    : '';
+
+  const jahrWahl = zeitraeume.length
     ? `<div class="nav-gruppe">
       <div class="nav-titel">Abrechnungsjahr</div>
       <select data-aktion="jahr-waehlen" style="font-size:15px">
-        ${jahre
+        ${zeitraeume
           .map((a) => `<option value="${esc(a.id)}"${periode?.id === a.id ? ' selected' : ''}>${a.jahr}</option>`)
           .join('')}
       </select>
@@ -133,6 +163,7 @@ function navigation(ctx) {
       <div class="marke-zeichen">NK</div>
       <div class="marke-text">Nebenkosten<small>Abrechnung nach BetrKV</small></div>
     </div>
+    ${objektWahl}
     ${jahrWahl}
     ${punkte}`;
 }
@@ -146,8 +177,8 @@ function zielObjekt(ziel) {
   const [art, schluessel] = ziel.split(':');
 
   switch (art) {
-    case 'vermieter': return daten.vermieter;
-    case 'objekt': return daten.objekt;
+    case 'vermieter': return daten.vermieter.find((v) => v.id === schluessel);
+    case 'objekt': return daten.objekte.find((o) => o.id === schluessel);
     case 'periode': return periode;
     case 'heizung': return periode?.heizung;
     case 'ansicht': return zustand;
@@ -213,9 +244,13 @@ function nachbereite(ziel, feld, objekt, daten) {
     }
   }
 
-  // Objekt-Gesamtwohnfläche als Vorbelegung, solange nichts eingetragen ist
-  if (ziel.startsWith('einheit:') && feld === 'wohnflaeche' && !daten.objekt.wohnflaecheGesamt) {
-    daten.objekt.wohnflaecheGesamt = daten.einheiten.reduce((s, e) => s + (e.wohnflaeche || 0), 0);
+  // Gesamtwohnfläche des Objekts vorbelegen, solange keine erfasst ist
+  if (ziel.startsWith('einheit:') && feld === 'wohnflaeche') {
+    const eigenesObjekt = daten.objekte.find((o) => o.id === objekt.objektId);
+    if (eigenesObjekt && !eigenesObjekt.wohnflaecheGesamt) {
+      eigenesObjekt.wohnflaecheGesamt = einheitenVon(daten, eigenesObjekt.id)
+        .reduce((s, e) => s + (e.wohnflaeche || 0), 0);
+    }
   }
 }
 
@@ -232,8 +267,83 @@ const aktionen = {
     store.setzeAktiveAbrechnung(el.value);
   },
 
+  'objekt-waehlen-select'(el) {
+    store.setzeAktivesObjekt(el.value);
+  },
+
+  'objekt-waehlen'(el) {
+    store.setzeAktivesObjekt(el.dataset.id);
+    melde('Objekt gewechselt');
+  },
+
+  // ------------------------------------------------------------ Vermieter
+
+  'vermieter-neu'() {
+    store.legeVermieterAn();
+    zustand.ansicht = 'vermieter';
+    render();
+    melde('Vermieter angelegt');
+  },
+
+  'vermieter-loeschen'(el) {
+    const daten = store.hole();
+    const v = daten.vermieter.find((x) => x.id === el.dataset.id);
+    const eigene = objekteVon(daten, el.dataset.id);
+    if (
+      !frage(
+        `„${v?.name || 'Vermieter'}" löschen?` +
+          (eigene.length
+            ? ` ${eigene.length} Objekt(e) mit allen Einheiten, Mietverhältnissen und Abrechnungen werden ebenfalls entfernt.`
+            : '')
+      )
+    ) return;
+    store.loescheVermieter(el.dataset.id);
+  },
+
+  // -------------------------------------------------------------- Objekte
+
+  'objekt-neu'() {
+    const daten = store.hole();
+    if (!daten.vermieter.length) {
+      zustand.ansicht = 'vermieter';
+      render();
+      return melde('Bitte zuerst einen Vermieter anlegen');
+    }
+    const aktiv = store.aktivesObjekt();
+    store.legeObjektAn(aktiv?.vermieterId || daten.vermieter[0].id);
+    zustand.ansicht = 'objekte';
+    render();
+    melde('Objekt angelegt');
+  },
+
+  'objekt-loeschen'(el) {
+    const daten = store.hole();
+    const o = daten.objekte.find((x) => x.id === el.dataset.id);
+    const anzahl = einheitenVon(daten, el.dataset.id).length;
+    if (
+      !frage(
+        `„${o?.bezeichnung || 'Objekt'}" löschen?` +
+          (anzahl ? ` ${anzahl} Einheit(en) samt Mietverhältnissen und Abrechnungen werden ebenfalls entfernt.` : '')
+      )
+    ) return;
+    store.loescheObjekt(el.dataset.id);
+  },
+
+  'flaeche-uebernehmen'(el) {
+    const objektId = el.dataset.id || store.aktivesObjekt()?.id;
+    if (!objektId) return;
+    store.aendere((daten) => {
+      const o = daten.objekte.find((x) => x.id === objektId);
+      if (o) o.wohnflaecheGesamt = einheitenVon(daten, objektId).reduce((s, e) => s + (e.wohnflaeche || 0), 0);
+    });
+    melde('Gesamtwohnfläche übernommen');
+  },
+
+  // ------------------------------------------------------------ Einheiten
+
   'einheit-neu'() {
-    store.aendere((d) => d.einheiten.push(neueEinheit(d.einheiten.length + 1)));
+    if (!store.aktivesObjekt()) return melde('Bitte zuerst ein Objekt anlegen');
+    store.legeEinheitAn();
     melde('Einheit angelegt');
   },
 
@@ -242,29 +352,24 @@ const aktionen = {
     const einheit = daten.einheiten.find((e) => e.id === el.dataset.id);
     const betroffen = daten.mietverhaeltnisse.filter((m) => m.einheitId === el.dataset.id).length;
     if (!frage(`„${einheit?.bezeichnung}" löschen?${betroffen ? ` ${betroffen} Mietverhältnis(se) werden ebenfalls entfernt.` : ''}`)) return;
-    store.aendere((d) => {
-      d.einheiten = d.einheiten.filter((e) => e.id !== el.dataset.id);
-      d.mietverhaeltnisse = d.mietverhaeltnisse.filter((m) => m.einheitId !== el.dataset.id);
-      for (const a of d.abrechnungen) a.verbraeuche = a.verbraeuche.filter((v) => v.einheitId !== el.dataset.id);
-    });
+    store.loescheEinheit(el.dataset.id);
   },
 
+  // ------------------------------------------------------ Mietverhältnisse
+
   'mv-neu'() {
-    const daten = store.hole();
-    const periode = store.aktiveAbrechnung();
-    if (!daten.einheiten.length) return melde('Bitte zuerst eine Einheit anlegen');
-    store.aendere((d) => d.mietverhaeltnisse.push(neuesMietverhaeltnis(d.einheiten[0].id, periode?.jahr || new Date().getFullYear())));
+    if (!store.einheiten().length) return melde('Bitte zuerst eine Einheit anlegen');
+    store.legeMietverhaeltnisAn();
     melde('Mietverhältnis angelegt');
   },
 
   'mv-loeschen'(el) {
     const m = store.hole().mietverhaeltnisse.find((x) => x.id === el.dataset.id);
     if (!frage(`Mietverhältnis „${m?.mieterName || ''}" löschen?`)) return;
-    store.aendere((d) => {
-      d.mietverhaeltnisse = d.mietverhaeltnisse.filter((x) => x.id !== el.dataset.id);
-      for (const a of d.abrechnungen) a.verbraeuche = a.verbraeuche.filter((v) => v.mietverhaeltnisId !== el.dataset.id);
-    });
+    store.loescheMietverhaeltnis(el.dataset.id);
   },
+
+  // --------------------------------------------------------------- Kosten
 
   'position-neu'() {
     const periode = store.aktiveAbrechnung();
@@ -299,13 +404,6 @@ const aktionen = {
     });
   },
 
-  'flaeche-uebernehmen'() {
-    store.aendere((d) => {
-      d.objekt.wohnflaecheGesamt = d.einheiten.reduce((s, e) => s + (e.wohnflaeche || 0), 0);
-    });
-    melde('Gesamtwohnfläche übernommen');
-  },
-
   'co2-schaetzen'() {
     const periode = store.aktiveAbrechnung();
     if (!periode) return;
@@ -319,8 +417,11 @@ const aktionen = {
     melde('CO₂-Menge geschätzt – Wert der Rechnung hat Vorrang');
   },
 
+  // ------------------------------------------------- Abrechnungszeiträume
+
   'abrechnung-neu'() {
-    const jahre = store.hole().abrechnungen.map((a) => a.jahr);
+    if (!store.aktivesObjekt()) return melde('Bitte zuerst ein Objekt anlegen');
+    const jahre = store.zeitraeume().map((a) => a.jahr);
     const vorschlag = jahre.length ? Math.max(...jahre) + 1 : new Date().getFullYear() - 1;
     const eingabe = window.prompt('Für welches Jahr soll abgerechnet werden?', String(vorschlag));
     if (!eingabe) return;
@@ -340,6 +441,8 @@ const aktionen = {
     if (!frage(`Abrechnung ${a?.jahr} mit allen Kosten löschen?`)) return;
     store.loescheAbrechnung(el.dataset.id);
   },
+
+  // ---------------------------------------------------------------- Daten
 
   'demo-laden'() {
     if (!frage('Beispieldaten laden? Die aktuell gespeicherten Daten werden überschrieben.')) return;

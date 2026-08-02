@@ -20,8 +20,10 @@ struct DokumentAnsicht: View {
 
     var body: some View {
         Group {
-            if let index = speicher.aktiverIndex, let ergebnis = speicher.ergebnis {
-                inhalt(index, ergebnis)
+            if speicher.aktivesObjekt == nil {
+                KeinObjekt()
+            } else if let index = speicher.aktiverIndex, let ergebnis = speicher.ergebnis, let bestand = speicher.bestand {
+                inhalt(index, ergebnis, bestand)
             } else {
                 KeinZeitraum()
             }
@@ -35,9 +37,9 @@ struct DokumentAnsicht: View {
     }
 
     @ViewBuilder
-    private func inhalt(_ index: Int, _ ergebnis: Abrechnung.Ergebnis) -> some View {
+    private func inhalt(_ index: Int, _ ergebnis: Abrechnung.Ergebnis, _ bestand: Objektbestand) -> some View {
         let periode = speicher.daten.abrechnungen[index]
-        let html = html(periode, ergebnis)
+        let html = html(periode, ergebnis, bestand)
 
         VStack(spacing: 0) {
             steuerleiste(index, periode, ergebnis)
@@ -113,26 +115,27 @@ struct DokumentAnsicht: View {
 
     // MARK: - Dokument und Ausgabe
 
-    private func html(_ periode: Abrechnungszeitraum, _ ergebnis: Abrechnung.Ergebnis) -> String {
+    private func html(_ periode: Abrechnungszeitraum, _ ergebnis: Abrechnung.Ergebnis, _ bestand: Objektbestand) -> String {
         switch auswahl {
         case .alle:
-            return DokumentHTML.alleMieterdokumente(speicher.daten, periode, ergebnis)
+            return DokumentHTML.alleMieterdokumente(bestand, periode, ergebnis)
         case .intern:
-            return DokumentHTML.vermieteruebersicht(speicher.daten, periode, ergebnis)
+            return DokumentHTML.vermieteruebersicht(bestand, periode, ergebnis)
         case .mieter(let id):
             guard let eintrag = ergebnis.ergebnisse.first(where: { $0.mietverhaeltnisId == id }) else {
-                return DokumentHTML.alleMieterdokumente(speicher.daten, periode, ergebnis)
+                return DokumentHTML.alleMieterdokumente(bestand, periode, ergebnis)
             }
-            return DokumentHTML.mieterdokument(speicher.daten, periode, ergebnis, eintrag)
+            return DokumentHTML.mieterdokument(bestand, periode, ergebnis, eintrag)
         }
     }
 
     private func dateiname(_ periode: Abrechnungszeitraum) -> String {
+        let objekt = speicher.aktivesObjekt?.anzeigename ?? "Objekt"
         switch auswahl {
         case .alle:
-            return "Betriebskostenabrechnung \(periode.jahr)"
+            return "Betriebskostenabrechnung \(periode.jahr) – \(objekt)"
         case .intern:
-            return "Interne Kostenübersicht \(periode.jahr)"
+            return "Interne Kostenübersicht \(periode.jahr) – \(objekt)"
         case .mieter(let id):
             let name = speicher.ergebnis?.ergebnisse.first { $0.mietverhaeltnisId == id }?.mieterName ?? "Mieter"
             return "Betriebskostenabrechnung \(periode.jahr) – \(name)"

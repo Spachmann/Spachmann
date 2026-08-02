@@ -127,15 +127,21 @@ Danach startet die App über ihr eigenes Symbol im Vollbild, ohne Adresszeile.
 
 Empfohlene Reihenfolge:
 
-1. **Stammdaten** – Vermieter und Objekt
-2. **Wohneinheiten** – jede Einheit mit Wohnfläche, auch leerstehende
-3. **Mietverhältnisse** – Mieter, Zeiträume, Personen, Vorauszahlungen
-4. **Daten & Sicherung** – Abrechnungszeitraum anlegen, etwa 2024
-5. **Kosten** – jede Rechnung als Position, Kostenart aus dem Katalog wählen
-6. **Heizung & Warmwasser** – falls zentral geheizt wird
-7. **Verbräuche** – Zählerstände
-8. **Rechtsprüfung** – Fehler und Warnungen abarbeiten
-9. **Dokument** – Vorschau ansehen und drucken
+1. **Vermieter** – dich selbst anlegen; eine GbR zusätzlich mit Rechtsform
+   *GbR* und dem Feld *Vertreten durch*
+2. **Objekte** – jede Immobilie anlegen und dem richtigen Vermieter zuordnen
+3. **Wohneinheiten** – jede Einheit mit Wohnfläche, auch leerstehende
+4. **Mietverhältnisse** – Mieter, Zeiträume, Personen, Vorauszahlungen
+5. **Daten & Sicherung** – Abrechnungszeitraum anlegen, etwa 2024
+6. **Kosten** – jede Rechnung als Position, Kostenart aus dem Katalog wählen
+7. **Heizung & Warmwasser** – falls zentral geheizt wird
+8. **Verbräuche** – Zählerstände
+9. **Rechtsprüfung** – Fehler und Warnungen abarbeiten
+10. **Dokument** – Vorschau ansehen und drucken
+
+Ab Schritt 3 arbeitest du immer in **einem** Objekt. Welches das ist, wählst du
+oben in der Seitenleiste; dort stehen alle Objekte, nach Vermieter gruppiert.
+Für jedes weitere Objekt wiederholst du die Schritte 3 bis 10.
 
 Unter **Dokument** kannst du oben umschalten zwischen allen Mieterabrechnungen,
 einer einzelnen Abrechnung und der internen Kostenübersicht, die umlagefähige

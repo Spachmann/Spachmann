@@ -48,14 +48,14 @@ enum Abrechnung {
     /// Zerlegt den Abrechnungszeitraum je Einheit in Nutzungsabschnitte.
     /// Lücken zwischen Mietverhältnissen gelten als Leerstand; die darauf
     /// entfallenden Kosten trägt der Vermieter (§ 556 Abs. 1 BGB).
-    static func bildeNutzeinheiten(_ daten: Datenbestand, von: String, bis: String) -> [Nutzeinheit] {
+    static func bildeNutzeinheiten(_ bestand: Objektbestand, von: String, bis: String) -> [Nutzeinheit] {
         var ergebnis: [Nutzeinheit] = []
         guard let zeitraumStart = Datum.tagesnummer(von), let zeitraumEnde = Datum.tagesnummer(bis) else {
             return ergebnis
         }
 
-        for einheit in daten.einheiten {
-            let abschnitte = daten.mietverhaeltnisseZu(einheitId: einheit.id)
+        for einheit in bestand.einheiten {
+            let abschnitte = bestand.mietverhaeltnisseZu(einheitId: einheit.id)
                 .compactMap { mv -> (Mietverhaeltnis, (von: String, bis: String))? in
                     guard let schnitt = Datum.schnitt(mv.von, mv.ende(spaetestens: bis), von, bis) else { return nil }
                     return (mv, schnitt)
@@ -67,14 +67,14 @@ enum Abrechnung {
             for (mv, schnitt) in abschnitte {
                 guard let start = Datum.tagesnummer(schnitt.von), let ende = Datum.tagesnummer(schnitt.bis) else { continue }
                 if start > laufend {
-                    ergebnis.append(nutzeinheit(einheit, nil, Datum.iso(laufend), Datum.iso(start - 1), daten))
+                    ergebnis.append(nutzeinheit(einheit, nil, Datum.iso(laufend), Datum.iso(start - 1), bestand))
                 }
-                ergebnis.append(nutzeinheit(einheit, mv, schnitt.von, schnitt.bis, daten))
+                ergebnis.append(nutzeinheit(einheit, mv, schnitt.von, schnitt.bis, bestand))
                 laufend = max(laufend, ende + 1)
             }
 
             if laufend <= zeitraumEnde {
-                ergebnis.append(nutzeinheit(einheit, nil, Datum.iso(laufend), Datum.iso(zeitraumEnde), daten))
+                ergebnis.append(nutzeinheit(einheit, nil, Datum.iso(laufend), Datum.iso(zeitraumEnde), bestand))
             }
         }
 
@@ -86,7 +86,7 @@ enum Abrechnung {
         _ mietverhaeltnis: Mietverhaeltnis?,
         _ von: String,
         _ bis: String,
-        _ daten: Datenbestand
+        _ bestand: Objektbestand
     ) -> Nutzeinheit {
         Nutzeinheit(
             id: "\(einheit.id):\(mietverhaeltnis?.id ?? "leer"):\(von)",
@@ -100,7 +100,7 @@ enum Abrechnung {
             tage: Datum.tage(von, bis),
             wohnflaeche: einheit.wohnflaeche,
             mea: einheit.mea,
-            personen: mietverhaeltnis?.personen ?? daten.objekt.leerstandPersonen)
+            personen: mietverhaeltnis?.personen ?? bestand.objekt.leerstandPersonen)
     }
 
     /// Vermerkt, welcher Anteil des Einheits-Zeitraums auf jeden Abschnitt entfällt.
@@ -412,14 +412,14 @@ enum Abrechnung {
 
     // MARK: - Hauptberechnung
 
-    static func berechne(_ daten: Datenbestand, _ periode: Abrechnungszeitraum) -> Ergebnis {
+    static func berechne(_ bestand: Objektbestand, _ periode: Abrechnungszeitraum) -> Ergebnis {
         var ergebnis = Ergebnis()
         ergebnis.von = periode.von
         ergebnis.bis = periode.bis
         ergebnis.jahr = periode.jahr
         ergebnis.tageZeitraum = Datum.tage(periode.von, periode.bis)
 
-        let nutzeinheiten = bildeNutzeinheiten(daten, von: periode.von, bis: periode.bis)
+        let nutzeinheiten = bildeNutzeinheiten(bestand, von: periode.von, bis: periode.bis)
         ergebnis.nutzeinheiten = nutzeinheiten
 
         let kontext = Verteilungskontext(
@@ -427,7 +427,7 @@ enum Abrechnung {
             bis: periode.bis,
             verbraeuche: periode.verbraeuche,
             hauptzaehler: periode.hauptzaehler,
-            verbrauchsdifferenz: daten.objekt.verbrauchsdifferenz)
+            verbrauchsdifferenz: bestand.objekt.verbrauchsdifferenz)
 
         let umlagefaehige = periode.positionen.filter(\.istUmlagefaehig)
         let nichtUmlagefaehige = periode.positionen.filter { !$0.istUmlagefaehig }
@@ -459,7 +459,7 @@ enum Abrechnung {
             eingaben.anteilVerbrauchWarmwasser = h.anteilVerbrauchWarmwasser
             eingaben.verbrauchserfassung = h.verbrauchserfassung
             eingaben.tageZeitraum = ergebnis.tageZeitraum
-            eingaben.wohnflaecheGesamt = daten.massgeblicheWohnflaeche
+            eingaben.wohnflaecheGesamt = bestand.massgeblicheWohnflaeche
             eingaben.nutzer = nutzeinheiten.map { n in
                 Heizkosten.Nutzer(
                     id: n.id,
@@ -566,7 +566,7 @@ enum Abrechnung {
 
         // --- Je Mietverhältnis aggregieren ---
         var mieterergebnisse: [Mieterergebnis] = []
-        for mv in daten.mietverhaeltnisse {
+        for mv in bestand.mietverhaeltnisse {
             let abschnitte = nutzeinheiten.filter { $0.mietverhaeltnisId == mv.id }
             guard !abschnitte.isEmpty else { continue }
 
@@ -613,7 +613,7 @@ enum Abrechnung {
                 mietverhaeltnisId: mv.id,
                 mieterName: mv.mieterName,
                 mieterAnschrift: mv.mieterAnschrift,
-                einheit: daten.einheit(mv.einheitId),
+                einheit: bestand.einheit(mv.einheitId),
                 nutzungVon: nutzungVon,
                 nutzungBis: nutzungBis,
                 nutzungTage: abschnitte.map(\.tage).reduce(0, +),

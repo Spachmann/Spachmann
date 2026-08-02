@@ -7,7 +7,9 @@ struct HeizungAnsicht: View {
 
     var body: some View {
         Group {
-            if let index = speicher.aktiverIndex {
+            if speicher.aktivesObjekt == nil {
+                KeinObjekt()
+            } else if let index = speicher.aktiverIndex {
                 inhalt(index)
             } else {
                 KeinZeitraum()
