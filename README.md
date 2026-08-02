@@ -11,6 +11,19 @@ BGH geforderten formellen Mindestangaben enthält.
 Alle Daten bleiben auf dem Gerät. Es gibt kein Backend und keine Übertragung an
 Server.
 
+## Zwei Fassungen
+
+| | Web-App (dieses Verzeichnis) | Native App (`ios/`) |
+| --- | --- | --- |
+| Technik | HTML, CSS, ES-Module – kein Build-Schritt | SwiftUI, Xcode-Projekt |
+| Installation | Safari → Teilen → Zum Home-Bildschirm | Xcode → ⌘R |
+| PDF | über den iOS-Druckdialog | direkt über `UIPrintPageRenderer`, dazu Teilen und AirPrint |
+| Ablage | Browserspeicher des Geräts | Dateisystem der App |
+| Rechenkern | `src/core/` | `ios/Nebenkosten/Kern/` |
+
+Beide benutzen dasselbe Sicherungsformat, Daten lassen sich also austauschen.
+Die Einrichtung der nativen Fassung beschreibt [`ios/README.md`](ios/README.md).
+
 ---
 
 ## Installation auf dem iPad
