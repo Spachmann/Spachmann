@@ -22,7 +22,8 @@ Server.
 | Rechenkern | `src/core/` | `ios/Nebenkosten/Kern/` |
 
 Beide benutzen dasselbe Sicherungsformat, Daten lassen sich also austauschen.
-Die Einrichtung der nativen Fassung beschreibt [`ios/README.md`](ios/README.md).
+Die native Fassung installierst du nach der Schritt-für-Schritt-Anleitung in
+[`ios/ANLEITUNG.md`](ios/ANLEITUNG.md).
 
 ---
 

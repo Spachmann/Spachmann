@@ -6,12 +6,19 @@ Abrechnung als echte PDF-Datei im A4-Format.
 
 ## Öffnen und starten
 
+**Schritt für Schritt vom Klonen bis zur App auf dem iPad:
+[ANLEITUNG.md](ANLEITUNG.md)**
+
+Kurzfassung:
+
 ```bash
-open ios/Nebenkosten.xcodeproj
+cd ios
+swift test                    # Rechenkern prüfen – zuerst ausführen
+open Nebenkosten.xcodeproj
 ```
 
-Dann in Xcode unter *Signing & Capabilities* dein Entwicklerteam auswählen und
-auf einem iPad oder im Simulator starten (⌘R). Die Bundle-ID lautet
+In Xcode unter *Signing & Capabilities* dein Entwicklerteam auswählen und auf
+einem iPad oder im Simulator starten (⌘R). Die Bundle-ID lautet
 `de.spachmann.nebenkosten`, das Mindestziel ist iOS 16.
 
 ## Rechenkern prüfen – ohne Xcode
