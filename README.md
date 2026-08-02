@@ -22,34 +22,33 @@ Server.
 | Rechenkern | `src/core/` | `ios/Nebenkosten/Kern/` |
 
 Beide benutzen dasselbe Sicherungsformat, Daten lassen sich also austauschen.
-Die native Fassung installierst du nach der Schritt-für-Schritt-Anleitung in
-[`ios/ANLEITUNG.md`](ios/ANLEITUNG.md).
+
+## Anleitungen
+
+* **Web-App auf dem iPad nutzen:** [ANLEITUNG-WEB.md](ANLEITUNG-WEB.md)
+* **Native App aus Xcode installieren:** [ios/ANLEITUNG.md](ios/ANLEITUNG.md)
 
 ---
 
-## Installation auf dem iPad
+## Web-App in Kürze
 
 Die App ist eine installierbare Web-App (PWA) ohne Build-Schritt.
 
-1. Dateien auf einen Webserver legen, der über **HTTPS** erreichbar ist
-   (oder lokal testen, siehe unten). HTTPS bzw. `localhost` ist Voraussetzung
-   dafür, dass Safari den Service Worker und die Installation zulässt.
-2. Die Adresse in **Safari** auf dem iPad öffnen.
-3. **Teilen → Zum Home-Bildschirm** wählen.
-
-Danach startet die App im Vollbild ohne Safari-Leiste, funktioniert offline und
-speichert die Daten lokal auf dem Gerät.
-
-### Lokal ausprobieren
-
 ```bash
-npm start                 # http://localhost:8080
-node tools/serve.js 3000  # anderer Port
+npm start     # startet den Server und zeigt die Adresse fürs iPad an
 ```
+
+Die angezeigte Adresse in **Safari** auf dem iPad öffnen, dann
+**Teilen → Zum Home-Bildschirm**. Danach startet die App im Vollbild ohne
+Safari-Leiste und speichert die Daten lokal auf dem Gerät.
+
+Für den dauerhaften Betrieb ohne laufenden Mac legst du die Dateien auf einen
+Webspace mit HTTPS – die Wege dorthin beschreibt
+[ANLEITUNG-WEB.md](ANLEITUNG-WEB.md).
 
 ### Als PDF sichern
 
-Im Reiter **Dokument** auf *Drucken / als PDF sichern* tippen. Im iOS-Druckdialog
+Im Bereich **Dokument** auf *Drucken / als PDF sichern* tippen. Im iOS-Druckdialog
 die Vorschau mit zwei Fingern aufziehen und **In Dateien sichern** wählen – das
 ergibt eine PDF-Datei im A4-Format. Über *Teilen* lässt sie sich direkt per
 E-Mail versenden.

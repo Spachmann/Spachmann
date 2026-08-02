@@ -9,6 +9,7 @@
  */
 
 import { createServer } from 'node:http';
+import { networkInterfaces } from 'node:os';
 import { readFile, stat } from 'node:fs/promises';
 import { join, extname, normalize, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -51,6 +52,27 @@ const server = createServer(async (anfrage, antwort) => {
   }
 });
 
+/** Adressen dieses Rechners im lokalen Netz – damit das iPad sie erreichen kann. */
+function netzadressen() {
+  return Object.values(networkInterfaces())
+    .flat()
+    .filter((schnittstelle) => schnittstelle && schnittstelle.family === 'IPv4' && !schnittstelle.internal)
+    .map((schnittstelle) => schnittstelle.address);
+}
+
 server.listen(PORT, () => {
-  console.log(`Nebenkosten-App läuft auf http://localhost:${PORT}`);
+  const strich = '─'.repeat(52);
+  console.log(`\n  Nebenkostenabrechnung\n  ${strich}`);
+  console.log(`  Auf diesem Rechner:  http://localhost:${PORT}`);
+
+  const adressen = netzadressen();
+  if (adressen.length) {
+    console.log('\n  Auf dem iPad im selben WLAN:');
+    for (const adresse of adressen) console.log(`      http://${adresse}:${PORT}`);
+    console.log('\n  Adresse in Safari öffnen, dann Teilen → Zum Home-Bildschirm.');
+  } else {
+    console.log('\n  Keine Netzwerkadresse gefunden – ist der Rechner im WLAN?');
+  }
+
+  console.log(`  ${strich}\n  Beenden mit Strg + C\n`);
 });
