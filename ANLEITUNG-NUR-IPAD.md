@@ -1,13 +1,9 @@
 # Nur ein iPad? So geht es trotzdem
 
-Kurze Antwort vorweg:
+Kurze Antwort vorweg: **Ja, vollständig.** Alles, was die App kann – erfassen,
+rechnen, prüfen, PDF erzeugen – geht allein mit dem iPad.
 
-| | Nur mit iPad möglich? |
-| --- | --- |
-| **Web-App** | **Ja, vollständig.** Alles was die App kann – erfassen, rechnen, prüfen, PDF erzeugen |
-| **Native App** (`ios/`) | Nein. Xcode gibt es ausschließlich für macOS |
-
-Für die Web-App brauchst du **keinen Mac und kein Terminal**. Die Einrichtung
+Du brauchst **keinen Mac und kein Terminal**. Die Einrichtung
 läuft komplett im Browser auf dem iPad und dauert etwa fünf Minuten – danach
 liegt die App als Symbol auf deinem Home-Bildschirm und funktioniert auch
 offline.
@@ -148,12 +144,9 @@ verschickst.
 
 ## Was ohne Mac nicht geht
 
-* **Die native App installieren.** Sie braucht Xcode, das es nur für macOS
-  gibt. Fachlich rechnet sie identisch – dir entgeht nur der direkte
-  PDF-Export mit AirPrint, nicht eine einzige Berechnung.
-* **Den Code ändern.** Änderungswünsche kannst du mir aber jederzeit sagen; ich
-  passe sie im Repository an, und die veröffentlichte Seite aktualisiert sich
-  nach ein paar Minuten von selbst.
+**Den Code ändern.** Änderungswünsche kannst du mir aber jederzeit sagen; ich
+passe sie im Repository an, und die veröffentlichte Seite aktualisiert sich
+nach ein paar Minuten von selbst. An der Abrechnung selbst fehlt dir nichts.
 
 Alles Fachliche zur Abrechnung steht in [README.md](README.md), die Übersicht
 über alle Wege in [START.md](START.md).

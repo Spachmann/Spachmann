@@ -13,31 +13,21 @@ BGH geforderten formellen Mindestangaben enthält.
 Alle Daten bleiben auf dem Gerät. Es gibt kein Backend und keine Übertragung an
 Server.
 
-## Zwei Fassungen
-
-| | Web-App (dieses Verzeichnis) | Native App (`ios/`) |
-| --- | --- | --- |
-| Technik | HTML, CSS, ES-Module – kein Build-Schritt | SwiftUI, Xcode-Projekt |
-| Installation | Safari → Teilen → Zum Home-Bildschirm | Xcode → ⌘R |
-| PDF | über den iOS-Druckdialog | direkt über `UIPrintPageRenderer`, dazu Teilen und AirPrint |
-| Ablage | Browserspeicher des Geräts | Dateisystem der App |
-| Rechenkern | `src/core/` | `ios/Nebenkosten/Kern/` |
-
-Beide benutzen dasselbe Sicherungsformat, Daten lassen sich also austauschen.
+Die App ist eine installierbare **Web-App (PWA)**: HTML, CSS und ES-Module,
+kein Build-Schritt, keine Abhängigkeiten, kein Framework. Auf dem iPad wird sie
+über *Safari → Teilen → Zum Home-Bildschirm* installiert und läuft danach im
+Vollbild wie eine normale App – auch ohne Internetverbindung.
 
 ## Anleitungen
 
 **Neu hier? → [START.md](START.md) fasst alle Schritte zusammen.**
 
 * Nur ein iPad, kein Mac: [ANLEITUNG-NUR-IPAD.md](ANLEITUNG-NUR-IPAD.md)
-* Web-App mit Mac einrichten: [ANLEITUNG-WEB.md](ANLEITUNG-WEB.md)
-* Native App aus Xcode installieren: [ios/ANLEITUNG.md](ios/ANLEITUNG.md)
+* Mit Mac einrichten und dauerhaft betreiben: [ANLEITUNG-WEB.md](ANLEITUNG-WEB.md)
 
 ---
 
-## Web-App in Kürze
-
-Die App ist eine installierbare Web-App (PWA) ohne Build-Schritt.
+## In Kürze
 
 ```bash
 npm start     # startet den Server und zeigt die Adresse fürs iPad an

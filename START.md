@@ -17,30 +17,22 @@ Sie verwaltet dabei **mehrere Vermieter mit mehreren Objekten**: dich privat
 mit deinen beiden Immobilien und daneben die GbR mit ihren Mietobjekten.
 Abgerechnet wird immer je Objekt, die Daten der Objekte bleiben getrennt.
 
-Es gibt sie in **zwei Fassungen**, die fachlich identisch rechnen:
+Technisch ist es eine **Web-App (PWA)**: HTML, CSS und ES-Module, kein
+Build-Schritt, keine Abhängigkeiten. Auf dem iPad wird sie über
+*Safari → Teilen → Zum Home-Bildschirm* installiert und läuft danach im
+Vollbild wie eine normale App – ohne Safari-Leiste und ohne
+Internetverbindung. Alle Daten bleiben auf dem Gerät.
 
-| | **Web-App** | **Native App** |
-| --- | --- | --- |
-| Wo | Wurzelverzeichnis | Ordner `ios/` |
-| Was du brauchst | nur eine Web-Adresse | Mac mit Xcode |
-| Einrichtung | 1 bis 10 Minuten | etwa 20 Minuten |
-| Läuft dauerhaft | ja | mit kostenlosem Apple-Konto: 7 Tage, dann ⌘R |
-| PDF | über den iOS-Druckdialog | direkt, dazu Teilen und AirPrint |
-
-**Empfehlung:** Fang mit der Web-App an. Sie ist schneller eingerichtet und
-läuft ohne Ablauffrist. Die native Fassung lohnt sich, wenn dir der direkte
-PDF-Export und AirPrint wichtig sind.
-
-> **Du hast nur ein iPad und keinen Mac?** Dann ist die Web-App der Weg, und du
-> brauchst weder Terminal noch Xcode – die Einrichtung läuft komplett im
-> Browser. Alles dazu in **[ANLEITUNG-NUR-IPAD.md](ANLEITUNG-NUR-IPAD.md)**.
-> Die Schritte unten kannst du dann überspringen.
+> **Du hast nur ein iPad und keinen Mac?** Kein Problem – die Einrichtung läuft
+> komplett im Browser, ohne Terminal. Alles dazu in
+> **[ANLEITUNG-NUR-IPAD.md](ANLEITUNG-NUR-IPAD.md)**. Die Schritte unten
+> kannst du dann überspringen.
 
 ---
 
 ## Schritt 1 – Code auf den Mac holen
 
-Gilt für beide Fassungen. Terminal öffnen (⌘ Leertaste → „Terminal“):
+Terminal öffnen (⌘ Leertaste → „Terminal“):
 
 ```bash
 git clone https://github.com/Spachmann/Spachmann.git
@@ -55,11 +47,11 @@ git checkout claude/nebenkosten-abrechnung-app-pl34dv
 
 ---
 
-## Weg A – Web-App
+## Schritt 2 – App bereitstellen
 
 Ausführlich: **[ANLEITUNG-WEB.md](ANLEITUNG-WEB.md)**
 
-### A1. Auf dem Mac starten
+### 2a. Auf dem Mac starten
 
 ```bash
 npm start
@@ -68,7 +60,7 @@ npm start
 Der Server zeigt zwei Adressen an: eine für den Mac, eine fürs iPad im WLAN.
 Die erste im Browser öffnen – fertig. Beenden mit **Strg + C**.
 
-### A2. Vom iPad aus öffnen
+### 2b. Vom iPad aus öffnen
 
 Die angezeigte WLAN-Adresse (etwa `http://192.168.1.42:8080`) in **Safari** auf
 dem iPad eingeben, dann **Teilen → Zum Home-Bildschirm**.
@@ -76,7 +68,7 @@ dem iPad eingeben, dann **Teilen → Zum Home-Bildschirm**.
 Gut zum Ausprobieren. Der Mac muss dabei laufen, und offline funktioniert die
 App so noch nicht.
 
-### A3. Dauerhafte Adresse einrichten
+### 2c. Dauerhafte Adresse einrichten
 
 Damit läuft alles ohne Mac und offline:
 
@@ -91,51 +83,12 @@ Alternative über GitHub Pages samt Fallstricken: siehe
 
 ---
 
-## Weg B – Native App
+## Schritt 3 – Die App benutzen
 
-Ausführlich: **[ios/ANLEITUNG.md](ios/ANLEITUNG.md)**
-
-### B1. Rechenkern prüfen
-
-```bash
-cd ios
-swift test
-```
-
-Erwartet: `Executed 61 tests, with 0 failures`.
-
-Dieser Schritt ist wichtig – der Swift-Code entstand ohne verfügbaren
-Swift-Compiler und wurde daher nie übersetzt. Kommen Fehler, schick mir die
-Ausgabe, dann behebe ich sie.
-
-### B2. Im Simulator ansehen
-
-```bash
-open Nebenkosten.xcodeproj
-```
-
-Oben in der Symbolleiste als Ziel ein **iPad Pro** unter *iOS Simulators*
-wählen, dann **⌘R**. Ohne Signierung, nur zum Anschauen.
-
-### B3. Auf dem iPad installieren
-
-1. *Xcode → Einstellungen → Accounts → „+“* → Apple-ID (kostenlos genügt)
-2. Links auf **Nebenkosten** → TARGETS **Nebenkosten** → Reiter
-   **Signing & Capabilities** → *Automatically manage signing* anhaken →
-   bei **Team** deine Apple-ID
-3. iPad anschließen, entsperren, „Diesem Computer vertrauen“
-4. Oben als Ziel dein iPad wählen, **⌘R**
-5. Auf dem iPad: *Einstellungen → Allgemein → VPN & Geräteverwaltung →
-   Entwickler-App → Vertrauen*, dann nochmal **⌘R**
-
----
-
-## Schritt 2 – Die App benutzen
-
-Gilt für beide Fassungen. Zum Kennenlernen:
-**Daten & Sicherung → Beispieldaten laden** – danach zeigen alle Bereiche ein
-vollständiges Portfolio: zwei privat gehaltene Immobilien und eine GbR mit zwei
-weiteren Objekten, mit Mieterwechsel, Heizkosten und CO₂-Aufteilung.
+Zum Kennenlernen: **Daten & Sicherung → Beispieldaten laden** – danach zeigen
+alle Bereiche ein vollständiges Portfolio: zwei privat gehaltene Immobilien und
+eine GbR mit zwei weiteren Objekten, mit Mieterwechsel, Heizkosten und
+CO₂-Aufteilung.
 
 Für die eigene Abrechnung in dieser Reihenfolge:
 
@@ -163,22 +116,22 @@ umlagefähige und nicht umlagefähige Kosten gegenüberstellt. Die interne
 
 ### PDF erzeugen
 
-* **Web-App:** *Drucken / als PDF sichern* → im iOS-Druckdialog die Vorschau
-  mit zwei Fingern aufziehen → *Teilen → In Dateien sichern*
-* **Native App:** *PDF erstellen* → dann *Teilen* oder *Drucken*
+1. Im Bereich **Dokument** auf *Drucken / als PDF sichern* tippen
+2. Im iOS-Druckdialog die Seitenvorschau **mit zwei Fingern aufziehen**
+3. Oben rechts *Teilen → In Dateien sichern*
+
+Das ergibt eine PDF-Datei im A4-Format, die du per Mail versenden oder
+ausdrucken kannst.
 
 ### Sicherungen anlegen
 
 **Daten & Sicherung → Sicherung speichern**, Datei in *Dateien* oder iCloud
-ablegen. Beide Fassungen lesen dasselbe Format.
+ablegen.
 
-Zwei Fälle, in denen das zählt:
-
-* **Adresswechsel bei der Web-App.** Der Speicher hängt an der Adresse. Wer von
-  der WLAN-Adresse auf eine feste Web-Adresse wechselt, muss die Daten über
-  eine Sicherung mitnehmen.
-* **Wechsel zwischen den Fassungen.** Sicherung aus der Web-App exportieren und
-  in der nativen App laden – oder umgekehrt.
+Der Grund, warum das zählt: Die Daten liegen im Speicher von Safari, und der
+hängt an der Adresse. Wer von der WLAN-Adresse auf eine feste Web-Adresse
+wechselt, muss die Daten über eine Sicherung mitnehmen. Auch beim Löschen der
+Safari-Daten oder beim Zurücksetzen des Geräts sind sie sonst weg.
 
 ---
 
@@ -188,19 +141,12 @@ Zwei Fälle, in denen das zählt:
 | --- | --- |
 | [START.md](START.md) | diese Übersicht |
 | [ANLEITUNG-NUR-IPAD.md](ANLEITUNG-NUR-IPAD.md) | ohne Mac: App im Browser einrichten, alles vom iPad aus |
-| [ANLEITUNG-WEB.md](ANLEITUNG-WEB.md) | Web-App mit Mac: drei Wege zur laufenden App, Home-Bildschirm, PDF, Fehlerbehebung |
-| [ios/ANLEITUNG.md](ios/ANLEITUNG.md) | Native App: von Xcode bis zur signierten App auf dem iPad |
+| [ANLEITUNG-WEB.md](ANLEITUNG-WEB.md) | mit Mac: drei Wege zur laufenden App, Home-Bildschirm, PDF, Fehlerbehebung |
 | [README.md](README.md) | fachliche Beschreibung: Rechtsgrundlagen, Verteilerschlüssel, Rechtsprüfung, Aufbau des Dokuments |
-| [ios/README.md](ios/README.md) | Aufbau des Swift-Projekts, Rechenkern, Projektgenerator |
 
 ---
 
-## Zwei Hinweise zum Schluss
-
-**Zur nativen Fassung:** Der Swift-Code wurde in einer Umgebung ohne
-Swift-Compiler geschrieben und ist deshalb nie übersetzt worden. Die
-Rechenlogik ist über 74 Tests gegen die geprüfte Web-Fassung abgesichert, aber
-`swift test` ist der erste Schritt, bevor du Zeit in die Oberfläche steckst.
+## Ein Hinweis zum Schluss
 
 **Zum Recht:** Die App setzt §§ 556, 556a BGB, die Betriebskostenverordnung,
 die Heizkostenverordnung und das Kohlendioxidkostenaufteilungsgesetz um und

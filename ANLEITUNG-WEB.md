@@ -1,6 +1,6 @@
 # Die Web-App auf dem iPad nutzen
 
-Die Web-App braucht keine Installation und kein Xcode – nur eine Adresse, die
+Die App braucht keine Installation aus dem App Store – nur eine Adresse, die
 du in Safari öffnen kannst. Danach legst du sie auf den Home-Bildschirm und sie
 verhält sich wie eine normale App: eigenes Symbol, Vollbild ohne Safari-Leiste,
 Daten bleiben auf dem Gerät.
@@ -30,9 +30,6 @@ cd Spachmann
 git checkout claude/nebenkosten-abrechnung-app-pl34dv
 npm start
 ```
-
-> Hast du das Repository für die native App schon geklont, entfallen die ersten
-> drei Zeilen – dann genügt `cd Spachmann && npm start`.
 
 Der Server meldet sich mit zwei Adressen. Die erste im Browser öffnen:
 
@@ -167,14 +164,11 @@ kann vom System oder beim Löschen der Safari-Daten geleert werden. Deshalb:
 **Daten & Sicherung → Sicherung speichern** → die JSON-Datei in *Dateien* oder
 iCloud ablegen. Über **Sicherung laden** ist sie jederzeit wieder da.
 
-Zwei Fälle, in denen das wirklich zählt:
-
-* **Adresswechsel.** Wechselst du von der WLAN-Adresse aus Weg 2 auf eine
-  eigene Web-Adresse aus Weg 3, sind das für Safari zwei verschiedene Seiten –
-  die Daten wandern **nicht** automatisch mit. Vorher Sicherung speichern,
-  nachher laden.
-* **Wechsel zur nativen App.** Beide Fassungen nutzen dasselbe Dateiformat,
-  eine Sicherung lässt sich also in die iPad-App einlesen und umgekehrt.
+Der Fall, in dem das wirklich zählt: **Adresswechsel.** Wechselst du von der
+WLAN-Adresse aus Weg 2 auf eine eigene Web-Adresse aus Weg 3, sind das für
+Safari zwei verschiedene Seiten – die Daten wandern **nicht** automatisch mit.
+Vorher Sicherung speichern, nachher laden. Dasselbe gilt beim Wechsel auf ein
+anderes iPad.
 
 ---
 

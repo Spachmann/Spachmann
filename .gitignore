@@ -2,13 +2,3 @@ node_modules/
 pruefseite.html
 *.log
 .DS_Store
-
-# Xcode
-ios/.build/
-ios/.swiftpm/
-ios/Nebenkosten.xcodeproj/xcuserdata/
-ios/Nebenkosten.xcodeproj/project.xcworkspace/xcuserdata/
-ios/Package.resolved
-xcuserdata/
-DerivedData/
-*.xcuserstate
