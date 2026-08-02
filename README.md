@@ -27,7 +27,8 @@ Beide benutzen dasselbe Sicherungsformat, Daten lassen sich also austauschen.
 
 **Neu hier? → [START.md](START.md) fasst alle Schritte zusammen.**
 
-* Web-App auf dem iPad nutzen: [ANLEITUNG-WEB.md](ANLEITUNG-WEB.md)
+* Nur ein iPad, kein Mac: [ANLEITUNG-NUR-IPAD.md](ANLEITUNG-NUR-IPAD.md)
+* Web-App mit Mac einrichten: [ANLEITUNG-WEB.md](ANLEITUNG-WEB.md)
 * Native App aus Xcode installieren: [ios/ANLEITUNG.md](ios/ANLEITUNG.md)
 
 ---

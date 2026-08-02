@@ -27,6 +27,11 @@ Es gibt sie in **zwei Fassungen**, die fachlich identisch rechnen:
 läuft ohne Ablauffrist. Die native Fassung lohnt sich, wenn dir der direkte
 PDF-Export und AirPrint wichtig sind.
 
+> **Du hast nur ein iPad und keinen Mac?** Dann ist die Web-App der Weg, und du
+> brauchst weder Terminal noch Xcode – die Einrichtung läuft komplett im
+> Browser. Alles dazu in **[ANLEITUNG-NUR-IPAD.md](ANLEITUNG-NUR-IPAD.md)**.
+> Die Schritte unten kannst du dann überspringen.
+
 ---
 
 ## Schritt 1 – Code auf den Mac holen
@@ -171,7 +176,8 @@ Zwei Fälle, in denen das zählt:
 | Datei | Inhalt |
 | --- | --- |
 | [START.md](START.md) | diese Übersicht |
-| [ANLEITUNG-WEB.md](ANLEITUNG-WEB.md) | Web-App: drei Wege zur laufenden App, Home-Bildschirm, PDF, Fehlerbehebung |
+| [ANLEITUNG-NUR-IPAD.md](ANLEITUNG-NUR-IPAD.md) | ohne Mac: App im Browser einrichten, alles vom iPad aus |
+| [ANLEITUNG-WEB.md](ANLEITUNG-WEB.md) | Web-App mit Mac: drei Wege zur laufenden App, Home-Bildschirm, PDF, Fehlerbehebung |
 | [ios/ANLEITUNG.md](ios/ANLEITUNG.md) | Native App: von Xcode bis zur signierten App auf dem iPad |
 | [README.md](README.md) | fachliche Beschreibung: Rechtsgrundlagen, Verteilerschlüssel, Rechtsprüfung, Aufbau des Dokuments |
 | [ios/README.md](ios/README.md) | Aufbau des Swift-Projekts, Rechenkern, Projektgenerator |

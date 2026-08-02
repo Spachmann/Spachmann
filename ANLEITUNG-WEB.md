@@ -5,6 +5,10 @@ du in Safari öffnen kannst. Danach legst du sie auf den Home-Bildschirm und sie
 verhält sich wie eine normale App: eigenes Symbol, Vollbild ohne Safari-Leiste,
 Daten bleiben auf dem Gerät.
 
+> **Ohne Mac?** Dann brauchst du diese Seite nicht – die Einrichtung läuft
+> komplett im Browser auf dem iPad:
+> [ANLEITUNG-NUR-IPAD.md](ANLEITUNG-NUR-IPAD.md)
+
 Es gibt drei Wege dorthin. Fang mit Weg 1 an, um zu sehen, ob dir die App
 gefällt; für den Alltag ist Weg 3 der bequemste.
 
