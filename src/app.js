@@ -12,10 +12,10 @@ import { parseBetrag, parseZahl } from './core/money.js';
 import { heute } from './core/datum.js';
 import { berechneAbrechnung } from './core/abrechnung.js';
 import { pruefe } from './core/pruefung.js';
-import { neuePosition, id, einheitenVon, objekteVon } from './core/model.js';
+import { neuePosition, neuerErzeuger, id, einheitenVon, objekteVon } from './core/model.js';
 import { BETRIEBSKOSTEN, kostenart } from './core/katalog.js';
 import { EMISSIONSFAKTOR } from './core/co2.js';
-import { HEIZWERT } from './core/heizkosten.js';
+import { ENERGIETRAEGER } from './core/heizkosten.js';
 import {
   startAnsicht, vermieterAnsicht, objekteAnsicht, einheitenAnsicht, mieterAnsicht,
   kostenAnsicht, heizungAnsicht, verbrauchAnsicht, pruefungAnsicht,
@@ -181,6 +181,7 @@ function zielObjekt(ziel) {
     case 'objekt': return daten.objekte.find((o) => o.id === schluessel);
     case 'periode': return periode;
     case 'heizung': return periode?.heizung;
+    case 'erzeuger': return periode?.heizung?.erzeuger?.find((e) => e.id === schluessel);
     case 'ansicht': return zustand;
     case 'einheit': return daten.einheiten.find((e) => e.id === schluessel);
     case 'mv': return daten.mietverhaeltnisse.find((m) => m.id === schluessel);
@@ -242,6 +243,18 @@ function nachbereite(ziel, feld, objekt, daten) {
     } else {
       objekt.umlagefaehig = false;
     }
+  }
+
+  // Energieträger gewechselt: Bezeichnung und Arbeitszahl nachziehen
+  if (ziel.startsWith('erzeuger:') && feld === 'energietraeger') {
+    const t = ENERGIETRAEGER[objekt.energietraeger];
+    const alteBezeichnungen = Object.values(ENERGIETRAEGER).map((x) => x.bezeichnung);
+    if (!objekt.bezeichnung || alteBezeichnungen.includes(objekt.bezeichnung)) {
+      objekt.bezeichnung = t?.bezeichnung || '';
+    }
+    // Ohne Arbeitszahl würde eine Wärmepumpe nur so viel Wärme liefern wie sie Strom bezieht.
+    if (t?.arbeitszahl) objekt.arbeitszahl = objekt.arbeitszahl > 1 ? objekt.arbeitszahl : 3;
+    else objekt.arbeitszahl = 0;
   }
 
   // Gesamtwohnfläche des Objekts vorbelegen, solange keine erfasst ist
@@ -404,17 +417,40 @@ const aktionen = {
     });
   },
 
-  'co2-schaetzen'() {
+  // -------------------------------------------------------- Wärmeerzeuger
+
+  'erzeuger-neu'() {
     const periode = store.aktiveAbrechnung();
-    if (!periode) return;
-    const h = periode.heizung;
-    const kwh = (h.brennstoffmenge || 0) * (HEIZWERT[h.brennstoff]?.wert || 0);
-    const kg = kwh * (EMISSIONSFAKTOR[h.brennstoff] || 0);
-    if (!kg) return melde('Brennstoffmenge fehlt');
+    if (!periode) return melde('Bitte zuerst einen Abrechnungszeitraum anlegen');
     store.aendere(() => {
-      h.co2.emissionKg = Math.round(kg);
+      const liste = periode.heizung.erzeuger;
+      // Der zweite Erzeuger einer Hybridanlage ist erfahrungsgemäß die Wärmepumpe.
+      const traeger = liste.length ? 'waermepumpe' : 'erdgas';
+      liste.push(neuerErzeuger(traeger, ENERGIETRAEGER[traeger].bezeichnung));
     });
-    melde('CO₂-Menge geschätzt – Wert der Rechnung hat Vorrang');
+    melde('Wärmeerzeuger angelegt');
+  },
+
+  'erzeuger-loeschen'(el) {
+    const periode = store.aktiveAbrechnung();
+    const e = periode?.heizung.erzeuger.find((x) => x.id === el.dataset.id);
+    if (!frage(`Wärmeerzeuger „${e?.bezeichnung || ''}" mit allen Kosten- und CO₂-Angaben löschen?`)) return;
+    store.aendere(() => {
+      periode.heizung.erzeuger = periode.heizung.erzeuger.filter((x) => x.id !== el.dataset.id);
+    });
+  },
+
+  'co2-schaetzen'(el) {
+    const periode = store.aktiveAbrechnung();
+    const e = periode?.heizung.erzeuger.find((x) => x.id === el.dataset.id);
+    if (!e) return;
+    const t = ENERGIETRAEGER[e.energietraeger];
+    const kg = (e.menge || 0) * (t?.heizwert || 0) * (EMISSIONSFAKTOR[e.energietraeger] || 0);
+    if (!kg) return melde('Bezogene Menge fehlt');
+    store.aendere(() => {
+      e.co2EmissionKg = Math.round(kg);
+    });
+    melde('CO₂-Menge geschätzt – der Wert der Rechnung hat Vorrang');
   },
 
   // ------------------------------------------------- Abrechnungszeiträume

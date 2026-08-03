@@ -88,7 +88,7 @@ Reihenfolge für die eigene Abrechnung:
 4. **Mietverhältnisse** – Mieter, Zeiträume, Personen, Vorauszahlungen
 5. **Daten & Sicherung** – Abrechnungszeitraum anlegen, etwa 2024
 6. **Kosten** – jede Rechnung als Position
-7. **Heizung & Warmwasser** – falls zentral geheizt wird
+7. **Heizung & Warmwasser** – falls zentral geheizt wird, je Wärmeerzeuger ein Eintrag
 8. **Verbräuche** – Zählerstände
 9. **Rechtsprüfung** – Fehler und Warnungen abarbeiten
 10. **Dokument** – Vorschau prüfen und drucken

@@ -4,14 +4,20 @@ import assert from 'node:assert/strict';
 import { parseBetrag, parseZahl, euro, anteilVon, runde, summe } from '../src/core/money.js';
 import { tage, ueberschneidungTage, plusMonate, monateImZeitraum, dt } from '../src/core/datum.js';
 import { stufeFuer, teileCo2Kosten } from '../src/core/co2.js';
-import { warmwasserWaermemengeKwh, warmwasserAnteil, berechneHeizkosten, verbrauchsanteilZulaessig } from '../src/core/heizkosten.js';
+import {
+  warmwasserWaermemengeKwh, warmwasserAnteil, berechneHeizkosten, verbrauchsanteilZulaessig,
+  fasseErzeugerZusammen, waermemengeVon, ENERGIETRAEGER,
+} from '../src/core/heizkosten.js';
 import { BETRIEBSKOSTEN, NICHT_UMLAGEFAEHIG, istUmlagefaehigeArt, SCHLUESSEL } from '../src/core/katalog.js';
 import { berechneAbrechnung, bildeNutzeinheiten, berechneVorauszahlungen, istUmlagefaehig, verteilePosition } from '../src/core/abrechnung.js';
 import { pruefe } from '../src/core/pruefung.js';
 import {
-  demodaten, neuePosition, migriere, leererDatenbestand, bestandFuerObjekt,
+  demodaten, neuePosition, neuerErzeuger, migriere, leererDatenbestand, bestandFuerObjekt,
   einheitenVon, mietverhaeltnisseVon, abrechnungenVon, objekteVon, rechtsform,
 } from '../src/core/model.js';
+
+/** Kurzform für einen Wärmeerzeuger in den Heizkostentests. */
+const erz = (werte = {}) => ({ ...neuerErzeuger('erdgas'), ...werte });
 
 // ---------------------------------------------------------------- Geldbeträge
 
@@ -166,21 +172,21 @@ test('Warmwasserwärmemenge nach § 9 Abs. 2 HeizkostenV', () => {
   assert.equal(warmwasserWaermemengeKwh(100, 10), 0);
 });
 
-test('Warmwasseranteil aus Brennstoffmenge und Heizwert', () => {
+test('Warmwasseranteil aus gemessener Warmwassermenge und Gesamtwärmemenge', () => {
   const r = warmwasserAnteil({
     modus: 'formel',
     warmwasserVolumen: 200,
     temperatur: 60,
-    brennstoffmenge: 25000,
-    brennstoff: 'erdgas',
+    gesamtwaermeKwh: 250000,
   });
-  // Q_ww = 2,5*200*50 = 25.000 kWh; gesamt = 25.000 m³ * 10 kWh = 250.000 kWh
+  // Q_ww = 2,5*200*50 = 25.000 kWh von 250.000 kWh = 10 %
   assert.ok(Math.abs(r.anteil - 0.1) < 1e-9);
 });
 
 test('Heizkostenverteilung hält Grund- und Verbrauchsanteil ein', () => {
   const r = berechneHeizkosten({
-    kosten: { brennstoff: 1000000, betriebsstrom: 0, wartung: 0, messdienst: 0 },
+    erzeuger: [erz({ kostenCent: 1000000 })],
+    kosten: { betriebsstrom: 0, wartung: 0, messdienst: 0 },
     verbunden: false,
     anteilVerbrauchHeizung: 0.7,
     verbrauchserfassung: true,
@@ -202,7 +208,7 @@ test('Heizkostenverteilung hält Grund- und Verbrauchsanteil ein', () => {
 
 test('§ 12 HeizkostenV: 15 Prozent Kürzung ohne Verbrauchserfassung', () => {
   const r = berechneHeizkosten({
-    kosten: { brennstoff: 100000 },
+    erzeuger: [erz({ kostenCent: 100000 })],
     verbunden: false,
     anteilVerbrauchHeizung: 0.7,
     verbrauchserfassung: false,
@@ -216,7 +222,7 @@ test('§ 12 HeizkostenV: 15 Prozent Kürzung ohne Verbrauchserfassung', () => {
 
 test('Leerstand erhält keine 15-Prozent-Kürzung', () => {
   const r = berechneHeizkosten({
-    kosten: { brennstoff: 100000 },
+    erzeuger: [erz({ kostenCent: 100000 })],
     verbunden: false,
     anteilVerbrauchHeizung: 0.7,
     verbrauchserfassung: false,
@@ -229,8 +235,7 @@ test('Leerstand erhält keine 15-Prozent-Kürzung', () => {
 
 test('CO2-Vermieteranteil mindert die umlagefähigen Brennstoffkosten', () => {
   const r = berechneHeizkosten({
-    kosten: { brennstoff: 1000000 },
-    co2: { kostenCent: 100000, emissionKg: 5000 },
+    erzeuger: [erz({ kostenCent: 1000000, co2KostenCent: 100000, co2EmissionKg: 5000 })],
     verbunden: false,
     anteilVerbrauchHeizung: 0.5,
     verbrauchserfassung: true,
@@ -241,6 +246,105 @@ test('CO2-Vermieteranteil mindert die umlagefähigen Brennstoffkosten', () => {
   assert.equal(r.co2.vermieterCent, 20000);
   assert.equal(r.umlagefaehigeBrennstoffkosten, 980000);
   assert.equal(r.summeVerteilt, 980000);
+});
+
+// ------------------------------------------------------- Wärmeerzeuger
+
+test('Wärmemenge wird vorrangig gemessen, ersatzweise gerechnet', () => {
+  // Zählerstände haben Vorrang
+  assert.equal(waermemengeVon(erz({ menge: 1000, zaehler: { standAnfang: 5000, standEnde: 17000 } })), 12000);
+  // dann die direkt eingetragene Wärmemenge
+  assert.equal(waermemengeVon(erz({ menge: 1000, waermemengeKwh: 9000 })), 9000);
+  // sonst Menge × Heizwert
+  assert.equal(waermemengeVon(erz({ menge: 1000 })), 10000);
+  assert.equal(waermemengeVon(erz({ energietraeger: 'fluessiggas', menge: 1000 })), 6570);
+});
+
+test('Wärmepumpe rechnet den Strom über die Arbeitszahl in Wärme um', () => {
+  const wp = erz({ energietraeger: 'waermepumpe', menge: 6000, arbeitszahl: 3.5 });
+  assert.equal(waermemengeVon(wp), 21000);
+  // Ohne Arbeitszahl bliebe es beim Stromverbrauch – deshalb ist sie Pflicht,
+  // solange kein Wärmemengenzähler vorhanden ist.
+  assert.equal(waermemengeVon({ ...wp, arbeitszahl: 0 }), 6000);
+  // Ein Zähler geht auch hier vor.
+  assert.equal(waermemengeVon({ ...wp, zaehler: { standAnfang: 100, standEnde: 19100 } }), 19000);
+});
+
+test('Hybridanlage summiert Wärme und Kosten beider Erzeuger', () => {
+  const e = fasseErzeugerZusammen([
+    erz({ id: 'a', energietraeger: 'waermepumpe', menge: 6000, arbeitszahl: 3, kostenCent: 180000 }),
+    erz({ id: 'b', energietraeger: 'erdgas', menge: 1200, kostenCent: 132000, co2KostenCent: 11000, co2EmissionKg: 2412 }),
+  ]);
+
+  assert.equal(e.hybrid, true);
+  assert.equal(e.anzahl, 2);
+  assert.equal(e.waermeGesamtKwh, 18000 + 12000);
+  assert.equal(e.kostenGesamt, 312000);
+  assert.equal(e.vollstaendigGemessen, false);
+  assert.ok(Math.abs(e.anteile[0].anteilWaerme - 0.6) < 1e-9);
+});
+
+test('CO2-Kosten fallen nur für Energieträger nach dem BEHG an', () => {
+  assert.equal(ENERGIETRAEGER.erdgas.co2Pflichtig, true);
+  assert.equal(ENERGIETRAEGER.heizoel.co2Pflichtig, true);
+  assert.equal(ENERGIETRAEGER.waermepumpe.co2Pflichtig, false);
+  assert.equal(ENERGIETRAEGER.pellets.co2Pflichtig, false);
+
+  // Beim Strom eingetragene CO2-Angaben werden nicht übernommen.
+  const e = fasseErzeugerZusammen([
+    erz({ energietraeger: 'waermepumpe', menge: 6000, arbeitszahl: 3, co2KostenCent: 9000, co2EmissionKg: 1500 }),
+    erz({ energietraeger: 'erdgas', menge: 1200, co2KostenCent: 11000, co2EmissionKg: 2412 }),
+  ]);
+  assert.equal(e.co2KostenGesamt, 11000);
+  assert.equal(e.co2EmissionGesamt, 2412);
+});
+
+test('der Wärmepumpenanteil senkt den Emissionskennwert des Gebäudes', () => {
+  const nutzer = [{ id: 'a', flaecheTage: 200 * 365, verbrauchHeizung: 100, verbrauchWarmwasser: 0 }];
+  const basis = {
+    verbunden: false, anteilVerbrauchHeizung: 0.5, verbrauchserfassung: true,
+    tageZeitraum: 365, wohnflaecheGesamt: 200, nutzer,
+  };
+
+  // Nur Gas: 30.000 kWh → 6.030 kg auf 200 m² = 30,2 kg/m²·a → Stufe 5
+  const nurGas = berechneHeizkosten({
+    ...basis,
+    erzeuger: [erz({ menge: 3000, kostenCent: 330000, co2KostenCent: 27000, co2EmissionKg: 6030 })],
+  });
+  assert.equal(nurGas.co2.stufe.stufe, 5);
+
+  // Hybrid: dieselbe Wärmemenge, aber nur ein Drittel aus Gas → 10,05 kg/m²·a → Stufe 1
+  const hybrid = berechneHeizkosten({
+    ...basis,
+    erzeuger: [
+      erz({ energietraeger: 'waermepumpe', menge: 6667, arbeitszahl: 3, kostenCent: 200000 }),
+      erz({ menge: 1000, kostenCent: 110000, co2KostenCent: 9000, co2EmissionKg: 2010 }),
+    ],
+  });
+  assert.equal(hybrid.co2.stufe.stufe, 1);
+  assert.equal(hybrid.co2.vermieterCent, 0);
+  assert.equal(hybrid.erzeugung.hybrid, true);
+});
+
+test('der Warmwasseranteil bezieht sich auf die Wärme aller Erzeuger', () => {
+  const r = berechneHeizkosten({
+    erzeuger: [
+      erz({ id: 'a', waermemengeKwh: 30000, kostenCent: 300000 }),
+      erz({ id: 'b', energietraeger: 'waermepumpe', waermemengeKwh: 20000, kostenCent: 200000 }),
+    ],
+    verbunden: true,
+    // Q = 2,5 · 100 · 50 = 12.500 kWh von 50.000 kWh = 25 %
+    warmwasser: { modus: 'formel', warmwasserVolumen: 100, temperatur: 60 },
+    anteilVerbrauchHeizung: 0.7, anteilVerbrauchWarmwasser: 0.7,
+    verbrauchserfassung: true, tageZeitraum: 365, wohnflaecheGesamt: 200,
+    nutzer: [{ id: 'a', flaecheTage: 200 * 365, verbrauchHeizung: 100, verbrauchWarmwasser: 10 }],
+  });
+
+  assert.equal(r.warmwasserAufteilung.gesamtwaermeKwh, 50000);
+  assert.ok(Math.abs(r.warmwasserAufteilung.anteil - 0.25) < 1e-9);
+  assert.equal(r.kostenWarmwasser, 125000);
+  assert.equal(r.kostenHeizung, 375000);
+  assert.equal(r.erzeugung.vollstaendigGemessen, true);
 });
 
 // -------------------------------------------------------- Nutzungszeiträume
@@ -640,6 +744,130 @@ test('migriere lässt eine Sicherung der Fassung 2 unverändert', () => {
 test('migriere verträgt einen leeren Bestand', () => {
   const neu = migriere({});
   assert.deepEqual(neu, leererDatenbestand());
+});
+
+test('migriere hebt eine Heizung der alten Fassung auf die Erzeugerliste', () => {
+  const alt = {
+    objekt: { bezeichnung: 'Haus A', wohnflaecheGesamt: 200 },
+    einheiten: [{ id: 'e1', bezeichnung: 'W1', wohnflaeche: 200 }],
+    abrechnungen: [{
+      id: 'a1', jahr: 2024,
+      heizung: {
+        aktiv: true, verbunden: true,
+        brennstoff: 'heizoel', brennstoffmenge: 3000, gesamtwaermeKwh: 0,
+        kosten: { brennstoff: 420000, betriebsstrom: 21000, wartung: 30000 },
+        co2: { kostenCent: 32000, emissionKg: 7980, gebaeudetyp: 'wohn', ausnahme: false },
+      },
+    }],
+  };
+  const h = migriere(alt).abrechnungen[0].heizung;
+
+  assert.equal(h.erzeuger.length, 1);
+  assert.equal(h.erzeuger[0].energietraeger, 'heizoel');
+  assert.equal(h.erzeuger[0].menge, 3000);
+  assert.equal(h.erzeuger[0].kostenCent, 420000);
+  assert.equal(h.erzeuger[0].co2KostenCent, 32000);
+  assert.equal(h.erzeuger[0].co2EmissionKg, 7980);
+
+  // Die aufgegangenen Felder verschwinden, die übrigen Kosten bleiben.
+  assert.equal(h.brennstoff, undefined);
+  assert.equal(h.kosten.brennstoff, undefined);
+  assert.equal(h.co2.kostenCent, undefined);
+  assert.equal(h.kosten.betriebsstrom, 21000);
+  assert.equal(h.co2.gebaeudetyp, 'wohn');
+
+  // Und die Abrechnung rechnet mit denselben Zahlen weiter.
+  const r = berechneHeizkosten({
+    erzeuger: h.erzeuger, kosten: h.kosten, co2: h.co2, verbunden: false,
+    anteilVerbrauchHeizung: 0.7, verbrauchserfassung: true,
+    tageZeitraum: 366, wohnflaecheGesamt: 200,
+    nutzer: [{ id: 'a', flaecheTage: 200 * 366, verbrauchHeizung: 100 }],
+  });
+  assert.equal(r.kostenRoh.brennstoffBrutto, 420000);
+  assert.equal(r.erzeugung.waermeGesamtKwh, 30000);
+  assert.equal(r.co2.emissionKg, 7980);
+});
+
+test('migriere verträgt eine Heizung ganz ohne Angaben', () => {
+  const h = migriere({ abrechnungen: [{ id: 'a1', jahr: 2024 }] }).abrechnungen[0].heizung;
+  assert.deepEqual(h.erzeuger, []);
+  assert.equal(h.aktiv, false);
+});
+
+test('Beispielobjekt 3 ist eine Hybridanlage aus Wärmepumpe und Gaskessel', () => {
+  const daten = demodaten();
+  const bestand = bestandFuerObjekt(daten, 'o3');
+  const periode = abrechnungenVon(daten, 'o3')[0];
+  const e = berechneAbrechnung(bestand, periode).heizung.erzeugung;
+
+  assert.equal(e.anzahl, 2);
+  assert.equal(e.hybrid, true);
+  assert.equal(e.vollstaendigGemessen, true, 'beide Erzeuger haben einen Wärmemengenzähler');
+  assert.equal(e.erzeuger[0].energietraeger, 'waermepumpe');
+  assert.equal(e.erzeuger[0].waermeKwh, 21500);   // 64.480 − 42.980
+  assert.equal(e.erzeuger[1].waermeKwh, 13200);   // 141.650 − 128.450
+  assert.equal(e.waermeGesamtKwh, 34700);
+  // Nur der Gasanteil ist CO2-pflichtig.
+  assert.equal(e.co2EmissionGesamt, 2814);
+  assert.equal(e.erzeuger[0].co2KostenCent, 0);
+});
+
+test('Beispielobjekt 1 rechnet unverändert mit einem einzigen Erzeuger', () => {
+  const daten = demodaten();
+  const bestand = bestandFuerObjekt(daten, 'o1');
+  const h = berechneAbrechnung(bestand, abrechnungenVon(daten, 'o1')[0]).heizung;
+  assert.equal(h.erzeugung.anzahl, 1);
+  assert.equal(h.erzeugung.hybrid, false);
+  assert.equal(h.erzeugung.waermeGesamtKwh, 42000);
+  assert.equal(h.kostenRoh.brennstoffBrutto, 462000);
+});
+
+test('Prüfung beanstandet eine Wärmepumpe ohne Zähler und ohne Arbeitszahl', () => {
+  const daten = demodaten();
+  const periode = abrechnungenVon(daten, 'o3')[0];
+  const wp = periode.heizung.erzeuger[0];
+  wp.zaehler = { nummer: '', standAnfang: 0, standEnde: 0 };
+  wp.arbeitszahl = 1;
+
+  const bestand = bestandFuerObjekt(daten, 'o3');
+  const pr = pruefe(bestand, periode, berechneAbrechnung(bestand, periode));
+  assert.ok(pr.befunde.some((b) => b.stufe === 'fehler' && b.titel.includes('Wärmepumpe ohne Wärmemengenzähler')));
+  assert.ok(!pr.abrechnungsfaehig);
+});
+
+test('Prüfung beanstandet CO2-Angaben beim Wärmepumpenstrom', () => {
+  const daten = demodaten();
+  const periode = abrechnungenVon(daten, 'o3')[0];
+  periode.heizung.erzeuger[0].co2KostenCent = 5000;
+
+  const bestand = bestandFuerObjekt(daten, 'o3');
+  const r = berechneAbrechnung(bestand, periode);
+  const pr = pruefe(bestand, periode, r);
+
+  assert.ok(pr.befunde.some((b) => b.stufe === 'warnung' && b.titel.includes('nicht CO2-pflichtigem Energieträger')));
+  // Der Betrag bleibt in der Rechnung unberücksichtigt.
+  assert.equal(r.heizung.erzeugung.co2KostenGesamt, 12600);
+});
+
+test('Prüfung warnt, wenn bei einer Hybridanlage nicht jede Wärmemenge gemessen ist', () => {
+  const daten = demodaten();
+  const periode = abrechnungenVon(daten, 'o3')[0];
+  periode.heizung.erzeuger[1].zaehler = { nummer: '', standAnfang: 0, standEnde: 0 };
+
+  const bestand = bestandFuerObjekt(daten, 'o3');
+  const pr = pruefe(bestand, periode, berechneAbrechnung(bestand, periode));
+  assert.ok(pr.befunde.some((b) => b.stufe === 'warnung' && b.titel.includes('Hybridanlage ohne vollständige')));
+  assert.ok(pr.abrechnungsfaehig, 'eine fehlende Messung macht die Abrechnung nicht unwirksam');
+});
+
+test('Prüfung verlangt mindestens einen Wärmeerzeuger', () => {
+  const daten = demodaten();
+  const periode = abrechnungenVon(daten, 'o1')[0];
+  periode.heizung.erzeuger = [];
+
+  const bestand = bestandFuerObjekt(daten, 'o1');
+  const pr = pruefe(bestand, periode, berechneAbrechnung(bestand, periode));
+  assert.ok(pr.befunde.some((b) => b.stufe === 'fehler' && b.titel === 'Kein Wärmeerzeuger erfasst'));
 });
 
 // ------------------------------------------------------- Mehrere Objekte

@@ -142,16 +142,36 @@ export function neueHeizung() {
   return {
     aktiv: false,
     verbunden: true,
-    brennstoff: 'erdgas',
-    brennstoffmenge: 0,
-    gesamtwaermeKwh: 0,
-    kosten: { brennstoff: 0, betriebsstrom: 0, wartung: 0, messdienst: 0, schornsteinfeger: 0, sonstiges: 0 },
+    erzeuger: [],
+    erfassungsart: 'hkv',
+    kosten: { betriebsstrom: 0, wartung: 0, messdienst: 0, schornsteinfeger: 0, sonstiges: 0 },
     kostenWarmwasserSeparat: 0,
     warmwasser: { modus: 'formel', volumen: 0, temperatur: 60, warmwasserKwh: 0, prozentsatz: 0.18 },
     anteilVerbrauchHeizung: 0.7,
     anteilVerbrauchWarmwasser: 0.7,
     verbrauchserfassung: true,
-    co2: { kostenCent: 0, emissionKg: 0, gebaeudetyp: 'wohn', ausnahme: false },
+    co2: { gebaeudetyp: 'wohn', ausnahme: false },
+  };
+}
+
+/**
+ * Ein Wärmeerzeuger. Eine Hybridanlage – etwa Gas-Brennwertkessel und
+ * Wärmepumpe – wird als mehrere Erzeuger erfasst, jeder mit eigener
+ * Abrechnung des Versorgers und eigenem Wärmemengenzähler.
+ */
+export function neuerErzeuger(energietraeger = 'erdgas', bezeichnung = '') {
+  return {
+    id: id('we'),
+    bezeichnung,
+    energietraeger,
+    menge: 0,
+    arbeitszahl: energietraeger === 'waermepumpe' ? 3 : 0,
+    zaehler: { nummer: '', standAnfang: 0, standEnde: 0 },
+    waermemengeKwh: 0,
+    kostenCent: 0,
+    co2KostenCent: 0,
+    co2EmissionKg: 0,
+    lieferant: '',
   };
 }
 
@@ -269,6 +289,14 @@ function migriereAbrechnung(a, objektId) {
   heizung.kosten = { ...vorlage.heizung.kosten, ...(a?.heizung?.kosten || {}) };
   heizung.warmwasser = { ...vorlage.heizung.warmwasser, ...(a?.heizung?.warmwasser || {}) };
   heizung.co2 = { ...vorlage.heizung.co2, ...(a?.heizung?.co2 || {}) };
+  heizung.erzeuger = migriereErzeuger(heizung, a?.heizung || {});
+  // Diese Felder gingen im Erzeuger auf.
+  delete heizung.brennstoff;
+  delete heizung.brennstoffmenge;
+  delete heizung.gesamtwaermeKwh;
+  delete heizung.kosten.brennstoff;
+  delete heizung.co2.kostenCent;
+  delete heizung.co2.emissionKg;
   return {
     ...vorlage,
     ...a,
@@ -278,6 +306,42 @@ function migriereAbrechnung(a, objektId) {
     positionen: (a?.positionen || []).map((p) => ({ ...neuePosition(), ...p })),
     verbraeuche: a?.verbraeuche || [],
   };
+}
+
+/**
+ * Hebt eine Heizung auf die Erzeugerliste.
+ *
+ * Ältere Sicherungen kannten genau einen Energieträger samt Menge, Kosten und
+ * CO2-Angaben. Daraus wird ein einzelner Wärmeerzeuger; die Werte bleiben
+ * unverändert, die Abrechnung rechnet danach identisch weiter.
+ */
+function migriereErzeuger(heizung, alt) {
+  const liste = (heizung.erzeuger || []).map((e) => ({
+    ...neuerErzeuger(e.energietraeger || 'erdgas'),
+    ...e,
+    zaehler: { ...neuerErzeuger().zaehler, ...(e.zaehler || {}) },
+  }));
+  if (liste.length) return liste;
+
+  const menge = alt.brennstoffmenge || 0;
+  const kosten = alt.kosten?.brennstoff || 0;
+  const waerme = alt.gesamtwaermeKwh || 0;
+  const co2Kosten = alt.co2?.kostenCent || 0;
+  const co2Menge = alt.co2?.emissionKg || 0;
+  if (!menge && !kosten && !waerme && !co2Kosten) return [];
+
+  return [
+    {
+      ...neuerErzeuger(alt.brennstoff || 'erdgas'),
+      // Die alte Fassung kannte keine Arbeitszahl; 1 hält das Ergebnis stabil.
+      arbeitszahl: 1,
+      menge,
+      waermemengeKwh: waerme,
+      kostenCent: kosten,
+      co2KostenCent: co2Kosten,
+      co2EmissionKg: co2Menge,
+    },
+  ];
 }
 
 /* ---------------------------------------------------------------- Demodaten */
@@ -422,13 +486,23 @@ function abrechnung1() {
       ...neueHeizung(),
       aktiv: true,
       verbunden: true,
-      brennstoff: 'erdgas',
-      // 4.200 m³ Erdgas ≈ 42.000 kWh; davon rund 11.500 kWh für Warmwasser
-      brennstoffmenge: 4200,
-      kosten: { brennstoff: 462000, betriebsstrom: 32000, wartung: 62000, messdienst: 74500, schornsteinfeger: 0, sonstiges: 0 },
+      erfassungsart: 'hkv',
+      erzeuger: [
+        {
+          ...neuerErzeuger('erdgas', 'Gas-Brennwertkessel'),
+          id: 'we1',
+          lieferant: 'Stadtwerke Stuttgart',
+          // 4.200 m³ Erdgas ≈ 42.000 kWh; davon rund 11.500 kWh für Warmwasser
+          menge: 4200,
+          kostenCent: 462000,
+          // 42.000 kWh × 0,201 kg/kWh ≈ 8.442 kg CO₂; bei 45 €/t rund 380 €
+          co2KostenCent: 38000,
+          co2EmissionKg: 8442,
+        },
+      ],
+      kosten: { betriebsstrom: 32000, wartung: 62000, messdienst: 74500, schornsteinfeger: 0, sonstiges: 0 },
       warmwasser: { modus: 'formel', volumen: 92, temperatur: 60, warmwasserKwh: 0, prozentsatz: 0.18 },
-      // 42.000 kWh × 0,201 kg/kWh ≈ 8.442 kg CO₂; bei 45 €/t rund 380 €
-      co2: { kostenCent: 38000, emissionKg: 8442, gebaeudetyp: 'wohn', ausnahme: false },
+      co2: { gebaeudetyp: 'wohn', ausnahme: false },
     },
   };
 }
@@ -548,15 +622,39 @@ function abrechnung3() {
       vb('x4', 'e7', null, 'heizung', 980), vb('x5', 'e8', null, 'heizung', 1140), vb('x6', 'e9', null, 'heizung', 720),
       vb('x7', 'e7', null, 'warmwasser', 21), vb('x8', 'e8', null, 'warmwasser', 28), vb('x9', 'e9', null, 'warmwasser', 13),
     ],
+    // Hybridanlage: Wärmepumpe als Grundlast, Gaskessel für Spitzenlast.
+    // Beide Erzeuger haben einen eigenen Wärmemengenzähler, deshalb ist die
+    // Aufteilung zwischen ihnen gemessen und nicht geschätzt.
     heizung: {
       ...neueHeizung(),
       aktiv: true,
       verbunden: true,
-      brennstoff: 'erdgas',
-      brennstoffmenge: 3100,
-      kosten: { brennstoff: 341000, betriebsstrom: 24000, wartung: 48000, messdienst: 56000, schornsteinfeger: 0, sonstiges: 0 },
+      erfassungsart: 'hkv',
+      erzeuger: [
+        {
+          ...neuerErzeuger('waermepumpe', 'Luft-Wasser-Wärmepumpe'),
+          id: 'we2',
+          lieferant: 'EnBW (Wärmepumpentarif)',
+          menge: 6400,
+          arbeitszahl: 3.4,
+          zaehler: { nummer: 'WMZ-1 Wärmepumpe', standAnfang: 42980, standEnde: 64480 },
+          kostenCent: 179200,
+        },
+        {
+          ...neuerErzeuger('erdgas', 'Gas-Brennwertkessel (Spitzenlast)'),
+          id: 'we3',
+          lieferant: 'Stadtwerke Stuttgart',
+          menge: 1400,
+          zaehler: { nummer: 'WMZ-2 Gaskessel', standAnfang: 128450, standEnde: 141650 },
+          kostenCent: 154000,
+          // Nur der Gasanteil unterliegt dem BEHG: 14.000 kWh × 0,201 kg/kWh
+          co2KostenCent: 12600,
+          co2EmissionKg: 2814,
+        },
+      ],
+      kosten: { betriebsstrom: 24000, wartung: 48000, messdienst: 56000, schornsteinfeger: 0, sonstiges: 0 },
       warmwasser: { modus: 'formel', volumen: 62, temperatur: 60, warmwasserKwh: 0, prozentsatz: 0.18 },
-      co2: { kostenCent: 28000, emissionKg: 6231, gebaeudetyp: 'wohn', ausnahme: false },
+      co2: { gebaeudetyp: 'wohn', ausnahme: false },
     },
   };
 }

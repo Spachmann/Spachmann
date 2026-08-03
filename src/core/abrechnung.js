@@ -300,6 +300,7 @@ export function berechneAbrechnung(daten, periode) {
   let heizErgebnis = null;
   if (heizung.aktiv) {
     heizErgebnis = berechneHeizkosten({
+      erzeuger: heizung.erzeuger || [],
       kosten: heizung.kosten || {},
       co2: heizung.co2 || {},
       verbunden: !!heizung.verbunden,
@@ -310,9 +311,6 @@ export function berechneAbrechnung(daten, periode) {
         warmwasserVolumen: heizung.warmwasser?.volumen,
         temperatur: heizung.warmwasser?.temperatur,
         prozentsatz: heizung.warmwasser?.prozentsatz,
-        gesamtwaermeKwh: heizung.gesamtwaermeKwh,
-        brennstoffmenge: heizung.brennstoffmenge,
-        brennstoff: heizung.brennstoff,
       },
       anteilVerbrauchHeizung: heizung.anteilVerbrauchHeizung,
       anteilVerbrauchWarmwasser: heizung.anteilVerbrauchWarmwasser,

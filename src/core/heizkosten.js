@@ -14,17 +14,37 @@
  */
 
 import { runde, anteilVon, summe } from './money.js';
-import { teileCo2Kosten } from './co2.js';
+import { teileCo2Kosten, EMISSIONSFAKTOR } from './co2.js';
 
-/** Heizwerte in kWh je Mengeneinheit (Standardwerte für Überschlagsrechnungen). */
-export const HEIZWERT = {
-  erdgas: { wert: 10.0, einheit: 'm³', bezeichnung: 'Erdgas H' },
-  heizoel: { wert: 10.0, einheit: 'l', bezeichnung: 'Heizöl EL' },
-  fluessiggas: { wert: 6.57, einheit: 'l', bezeichnung: 'Flüssiggas' },
-  pellets: { wert: 4.8, einheit: 'kg', bezeichnung: 'Holzpellets' },
-  fernwaerme: { wert: 1.0, einheit: 'kWh', bezeichnung: 'Fernwärme' },
-  waermepumpe: { wert: 1.0, einheit: 'kWh', bezeichnung: 'Wärmepumpenstrom' },
+/**
+ * Energieträger einer Wärmeerzeugung.
+ *
+ *  - `heizwert`      kWh je Mengeneinheit (Standardwert für Überschlagsrechnungen)
+ *  - `co2Pflichtig`  true, wenn der Träger dem BEHG unterliegt und damit
+ *                    CO2-Kosten nach dem CO2KostAufG anfallen. Strom fällt
+ *                    nicht darunter (er unterliegt dem europäischen
+ *                    Emissionshandel), Holz ebenfalls nicht.
+ *  - `arbeitszahl`   true, wenn aus der eingesetzten Energie erst über eine
+ *                    Arbeitszahl die erzeugte Wärmemenge wird (Wärmepumpe).
+ */
+export const ENERGIETRAEGER = {
+  erdgas: { bezeichnung: 'Erdgas H', einheit: 'm³', heizwert: 10.0, co2Pflichtig: true },
+  heizoel: { bezeichnung: 'Heizöl EL', einheit: 'l', heizwert: 10.0, co2Pflichtig: true },
+  fluessiggas: { bezeichnung: 'Flüssiggas', einheit: 'l', heizwert: 6.57, co2Pflichtig: true },
+  pellets: { bezeichnung: 'Holzpellets', einheit: 'kg', heizwert: 4.8, co2Pflichtig: false },
+  fernwaerme: { bezeichnung: 'Fernwärme', einheit: 'kWh', heizwert: 1.0, co2Pflichtig: true },
+  waermepumpe: { bezeichnung: 'Wärmepumpenstrom', einheit: 'kWh', heizwert: 1.0, co2Pflichtig: false, arbeitszahl: true },
+  heizstrom: { bezeichnung: 'Heizstrom (direkt)', einheit: 'kWh', heizwert: 1.0, co2Pflichtig: false },
 };
+
+export function energietraeger(id) {
+  return ENERGIETRAEGER[id] || null;
+}
+
+/** Emissionsfaktor in kg CO₂ je kWh Endenergie. */
+export function emissionsfaktor(traegerId) {
+  return EMISSIONSFAKTOR[traegerId] || 0;
+}
 
 export const VERBRAUCHSANTEIL_MIN = 0.5;
 export const VERBRAUCHSANTEIL_MAX = 0.7;
@@ -50,6 +70,80 @@ export function warmwasserWaermemengeKwh(volumenM3, temperaturC = 60) {
   return 2.5 * v * (t - 10);
 }
 
+/* ---------------------------------------------------------- Wärmeerzeuger */
+
+/**
+ * Wärmemenge eines Erzeugers in kWh.
+ *
+ * Vorrang hat die Messung: die Differenz zweier Zählerstände, ersatzweise eine
+ * direkt eingetragene Wärmemenge. Erst wenn kein Wärmemengenzähler vorhanden
+ * ist, wird aus der eingesetzten Energiemenge gerechnet – bei einer Wärmepumpe
+ * über die Arbeitszahl, sonst über den Heizwert.
+ */
+export function waermemengeVon(e = {}) {
+  const stand = (e.zaehler?.standEnde || 0) - (e.zaehler?.standAnfang || 0);
+  if (stand > 0) return stand;
+  if (e.waermemengeKwh > 0) return e.waermemengeKwh;
+
+  const t = ENERGIETRAEGER[e.energietraeger];
+  const endenergie = (e.menge || 0) * (t?.heizwert || 0);
+  if (t?.arbeitszahl) return endenergie * (e.arbeitszahl > 0 ? e.arbeitszahl : 1);
+  return endenergie;
+}
+
+/** true, wenn die Wärmemenge dieses Erzeugers gemessen und nicht gerechnet ist. */
+export function istGemessen(e = {}) {
+  return (e.zaehler?.standEnde || 0) - (e.zaehler?.standAnfang || 0) > 0 || (e.waermemengeKwh || 0) > 0;
+}
+
+/**
+ * Bereitet die Wärmeerzeuger für die Abrechnung auf und bildet die Summen.
+ *
+ * CO2-Kosten werden nur von Erzeugern übernommen, deren Energieträger dem
+ * BEHG unterliegt. Wärmepumpenstrom bleibt dabei außen vor – für ihn gilt das
+ * CO2KostAufG nicht, und er senkt dadurch zugleich den Emissionskennwert des
+ * Gebäudes.
+ */
+export function fasseErzeugerZusammen(liste = []) {
+  const erzeuger = liste.map((e) => {
+    const t = ENERGIETRAEGER[e.energietraeger] || {};
+    const co2Pflichtig = !!t.co2Pflichtig;
+    return {
+      id: e.id,
+      bezeichnung: e.bezeichnung || t.bezeichnung || 'Wärmeerzeuger',
+      energietraeger: e.energietraeger,
+      traegerBezeichnung: t.bezeichnung || e.energietraeger || '',
+      mengeneinheit: t.einheit || '',
+      menge: e.menge || 0,
+      arbeitszahl: t.arbeitszahl ? (e.arbeitszahl > 0 ? e.arbeitszahl : 1) : 0,
+      zaehlernummer: e.zaehler?.nummer || '',
+      waermeKwh: waermemengeVon(e),
+      gemessen: istGemessen(e),
+      kostenCent: e.kostenCent || 0,
+      co2Pflichtig,
+      co2KostenCent: co2Pflichtig ? e.co2KostenCent || 0 : 0,
+      co2EmissionKg: co2Pflichtig ? e.co2EmissionKg || 0 : 0,
+    };
+  });
+
+  const waermeGesamtKwh = summe(erzeuger.map((e) => e.waermeKwh));
+  return {
+    erzeuger,
+    anzahl: erzeuger.length,
+    hybrid: erzeuger.length > 1,
+    kostenGesamt: summe(erzeuger.map((e) => e.kostenCent)),
+    waermeGesamtKwh,
+    vollstaendigGemessen: erzeuger.length > 0 && erzeuger.every((e) => e.gemessen),
+    co2KostenGesamt: summe(erzeuger.map((e) => e.co2KostenCent)),
+    co2EmissionGesamt: summe(erzeuger.map((e) => e.co2EmissionKg)),
+    anteile: erzeuger.map((e) => ({
+      id: e.id,
+      bezeichnung: e.bezeichnung,
+      anteilWaerme: waermeGesamtKwh > 0 ? e.waermeKwh / waermeGesamtKwh : 0,
+    })),
+  };
+}
+
 /**
  * Ermittelt den Anteil der Warmwasserbereitung an den Brennstoffkosten
  * einer verbundenen Anlage.
@@ -60,8 +154,6 @@ export function warmwasserWaermemengeKwh(volumenM3, temperaturC = 60) {
  * @param {number} p.warmwasserVolumen  Gesamtwarmwasser in m³ (Modus 'formel')
  * @param {number} p.temperatur         mittlere Warmwassertemperatur in °C
  * @param {number} p.gesamtwaermeKwh    insgesamt erzeugte Wärmemenge in kWh
- * @param {number} p.brennstoffmenge    verbrauchte Brennstoffmenge
- * @param {string} p.brennstoff         Schlüssel aus HEIZWERT
  * @param {number} p.prozentsatz        fester Anteil 0..1 (Modus 'prozent')
  */
 export function warmwasserAnteil(p = {}) {
@@ -72,10 +164,7 @@ export function warmwasserAnteil(p = {}) {
     return { anteil, methode: 'Fester vertraglich/technisch begründeter Anteil', warmwasserKwh: 0, gesamtwaermeKwh: 0 };
   }
 
-  const gesamtwaermeKwh =
-    p.gesamtwaermeKwh > 0
-      ? p.gesamtwaermeKwh
-      : (p.brennstoffmenge || 0) * (HEIZWERT[p.brennstoff]?.wert || 0);
+  const gesamtwaermeKwh = p.gesamtwaermeKwh > 0 ? p.gesamtwaermeKwh : 0;
 
   const warmwasserKwh =
     modus === 'wmz'
@@ -106,8 +195,9 @@ function klemme(wert, min, max) {
  * Vollständige Heiz- und Warmwasserkostenabrechnung.
  *
  * @param {object} p
- * @param {object} p.kosten            Cent-Beträge: brennstoff, betriebsstrom, wartung, messdienst, schornsteinfeger, sonstiges
- * @param {object} p.co2               Eingaben für das CO2KostAufG (optional)
+ * @param {Array}  p.erzeuger          Wärmeerzeuger: [{ energietraeger, menge, arbeitszahl, zaehler, waermemengeKwh, kostenCent, co2KostenCent, co2EmissionKg }]
+ * @param {object} p.kosten            Cent-Beträge: betriebsstrom, wartung, messdienst, schornsteinfeger, sonstiges
+ * @param {object} p.co2               Gebäudeangaben für das CO2KostAufG: gebaeudetyp, ausnahme
  * @param {boolean} p.verbunden        verbundene Anlage (Heizung + Warmwasser aus einer Erzeugung)
  * @param {object} p.warmwasser        Parameter für warmwasserAnteil()
  * @param {number} p.anteilVerbrauchHeizung   0,5..0,7
@@ -121,7 +211,12 @@ export function berechneHeizkosten(p) {
   const kosten = p.kosten || {};
   const nutzer = p.nutzer || [];
 
-  const brennstoffBrutto = kosten.brennstoff || 0;
+  // 0. Wärmeerzeuger zusammenfassen. Eine Hybridanlage – etwa Gaskessel und
+  //    Wärmepumpe – liefert hier mehrere Einträge; ihre Kosten bilden gemeinsam
+  //    die Brennstoffkosten, ihre Wärmemengen die Gesamtwärmemenge.
+  const erzeugung = fasseErzeugerZusammen(p.erzeuger || []);
+
+  const brennstoffBrutto = erzeugung.kostenGesamt;
   const nebenkosten = summe([
     kosten.betriebsstrom,
     kosten.wartung,
@@ -130,10 +225,12 @@ export function berechneHeizkosten(p) {
     kosten.sonstiges,
   ]);
 
-  // 1. CO2-Kosten aufteilen — der Vermieteranteil wird vorab abgezogen (§ 6 CO2KostAufG).
+  // 1. CO2-Kosten aufteilen — der Vermieteranteil wird vorab abgezogen
+  //    (§ 6 CO2KostAufG). Berücksichtigt werden nur Energieträger, die dem
+  //    BEHG unterliegen; Wärmepumpenstrom bleibt außen vor.
   const co2 = teileCo2Kosten({
-    co2KostenCent: p.co2?.kostenCent || 0,
-    emissionKg: p.co2?.emissionKg || 0,
+    co2KostenCent: erzeugung.co2KostenGesamt,
+    emissionKg: erzeugung.co2EmissionGesamt,
     wohnflaeche: p.wohnflaecheGesamt || 0,
     tageZeitraum: p.tageZeitraum || 365,
     gebaeudetyp: p.co2?.gebaeudetyp || 'wohn',
@@ -145,7 +242,7 @@ export function berechneHeizkosten(p) {
 
   // 2. Aufteilung Heizung / Warmwasser
   const ww = p.verbunden
-    ? warmwasserAnteil(p.warmwasser || {})
+    ? warmwasserAnteil({ ...(p.warmwasser || {}), gesamtwaermeKwh: erzeugung.waermeGesamtKwh })
     : { anteil: 0, methode: 'Getrennte Anlagen – keine Aufteilung erforderlich', warmwasserKwh: 0, gesamtwaermeKwh: 0 };
 
   const kostenWarmwasser = p.verbunden ? anteilVon(gesamtUmlagefaehig, ww.anteil) : (p.kostenWarmwasserSeparat || 0);
@@ -202,6 +299,7 @@ export function berechneHeizkosten(p) {
 
   return {
     kostenRoh: { brennstoffBrutto, nebenkosten, gesamt: brennstoffBrutto + nebenkosten },
+    erzeugung,
     co2,
     umlagefaehigeBrennstoffkosten,
     gesamtUmlagefaehig,

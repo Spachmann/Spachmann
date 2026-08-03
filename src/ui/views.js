@@ -8,7 +8,7 @@ import { esc, optionen } from './dom.js';
 import { euro, betragText, zahl, prozent, summe } from '../core/money.js';
 import { dt, tage, plusMonate, heute } from '../core/datum.js';
 import { BETRIEBSKOSTEN, NICHT_UMLAGEFAEHIG, SCHLUESSEL, SCHLUESSEL_INFO, kostenart, HEIZ_ARTEN } from '../core/katalog.js';
-import { HEIZWERT } from '../core/heizkosten.js';
+import { ENERGIETRAEGER } from '../core/heizkosten.js';
 import { STUFEN, EMISSIONSFAKTOR } from '../core/co2.js';
 import { istUmlagefaehig, berechneVorauszahlungen } from '../core/abrechnung.js';
 import { RECHTSFORMEN, rechtsform, objekteVon, einheitenVon } from '../core/model.js';
@@ -729,23 +729,20 @@ export function heizungAnsicht(ctx) {
           'Dann wird der Warmwasseranteil nach § 9 HeizkostenV herausgerechnet.')}
         ${schalter('Verbrauch wird erfasst', 'heizung', 'verbrauchserfassung', h.verbrauchserfassung !== false,
           'Ausschalten nur, wenn keine Erfassungsgeräte vorhanden sind – dann greift die 15-%-Kürzung des § 12 HeizkostenV.')}
-        ${auswahl('Energieträger', 'heizung', 'brennstoff', h.brennstoff,
-          Object.entries(HEIZWERT).map(([id, w]) => [id, `${w.bezeichnung} (${zahl(w.wert, 2)} kWh/${w.einheit})`]))}
-        ${txt(`Brennstoffmenge (${HEIZWERT[h.brennstoff]?.einheit || ''})`, 'heizung', 'brennstoffmenge', zahl(h.brennstoffmenge, 1), {
-          typ: 'zahl',
-          notiz: 'aus der Jahresrechnung des Versorgers',
-        })}
-        ${txt('Gemessene Gesamtwärmemenge (kWh)', 'heizung', 'gesamtwaermeKwh', zahl(h.gesamtwaermeKwh, 0), {
-          typ: 'zahl',
-          notiz: 'falls ein Wärmemengenzähler vorhanden ist – hat Vorrang vor der Berechnung aus dem Heizwert',
-        })}
+        ${auswahl('Erfassung in den Wohnungen', 'heizung', 'erfassungsart', h.erfassungsart || 'hkv', [
+          ['hkv', 'Heizkostenverteiler (Anzeigeeinheiten)'],
+          ['wmz', 'Wärmemengenzähler (kWh)'],
+        ], 'bestimmt nur die Einheit, mit der die Wohnungsverbräuche in der Abrechnung ausgewiesen werden')}
       </div>`
     ) +
+    erzeugerKarte(h, heiz) +
     karte(
-      'Kosten der Wärmeversorgung',
+      'Weitere Kosten der Wärmeversorgung',
       `<div class="raster">
-        ${txt('Brennstoff / Fernwärme (€)', 'heizung', 'kosten.brennstoff', betragText(h.kosten.brennstoff), { typ: 'betrag' })}
-        ${txt('Betriebsstrom (€)', 'heizung', 'kosten.betriebsstrom', betragText(h.kosten.betriebsstrom), { typ: 'betrag' })}
+        ${txt('Betriebsstrom (€)', 'heizung', 'kosten.betriebsstrom', betragText(h.kosten.betriebsstrom), {
+          typ: 'betrag',
+          notiz: 'Pumpen, Regelung, Steuerung – nicht der Strom, mit dem eine Wärmepumpe Wärme erzeugt',
+        })}
         ${txt('Wartung der Anlage (€)', 'heizung', 'kosten.wartung', betragText(h.kosten.wartung), {
           typ: 'betrag',
           notiz: 'nur Wartung – Reparaturen sind Instandsetzung und nicht umlagefähig',
@@ -806,13 +803,20 @@ export function heizungAnsicht(ctx) {
     ) +
     karte(
       'CO₂-Kostenaufteilung (CO2KostAufG)',
-      `${meldung('hinweis', 'Pflicht seit 01.01.2023', 'Bei Wohngebäuden trägt der Vermieter je nach Emissionskennwert des Gebäudes 0 bis 95 % der CO₂-Kosten. Der Brennstofflieferant muss CO₂-Menge und CO₂-Kosten auf der Rechnung ausweisen.', '§§ 3, 5–7 CO2KostAufG')}
+      `${meldung('hinweis', 'Pflicht seit 01.01.2023', 'Bei Wohngebäuden trägt der Vermieter je nach Emissionskennwert des Gebäudes 0 bis 95 % der CO₂-Kosten. Der Brennstofflieferant muss CO₂-Menge und CO₂-Kosten auf der Rechnung ausweisen. Die Beträge trägst du beim jeweiligen Wärmeerzeuger ein.', '§§ 3, 5–7 CO2KostAufG')}
+      ${
+        heiz?.erzeugung?.hybrid
+          ? meldung('hinweis', 'Hybridanlage',
+              `Von ${zahl(heiz.erzeugung.waermeGesamtKwh, 0)} kWh Wärme stammen <strong>${prozent(
+                heiz.erzeugung.waermeGesamtKwh > 0
+                  ? summe(heiz.erzeugung.erzeuger.filter((x) => x.co2Pflichtig).map((x) => x.waermeKwh)) / heiz.erzeugung.waermeGesamtKwh
+                  : 0,
+                1
+              )}</strong> aus CO₂-pflichtigen Energieträgern. Nur dieser Anteil geht in den Emissionskennwert und in die Kostenaufteilung ein.`,
+              '§ 2 Abs. 1 CO2KostAufG')
+          : ''
+      }
       <div class="raster">
-        ${txt('CO₂-Kosten laut Rechnung (€)', 'heizung', 'co2.kostenCent', betragText(h.co2.kostenCent), { typ: 'betrag' })}
-        ${txt('CO₂-Menge laut Rechnung (kg)', 'heizung', 'co2.emissionKg', zahl(h.co2.emissionKg, 0), {
-          typ: 'zahl',
-          notiz: `Schätzung aus Brennstoffmenge: ${zahl(schaetzung(h), 0)} kg <button class="btn schlicht klein" data-aktion="co2-schaetzen">übernehmen</button>`,
-        })}
         ${auswahl('Gebäudetyp', 'heizung', 'co2.gebaeudetyp', h.co2.gebaeudetyp, [
           ['wohn', 'Wohngebäude (Stufenmodell)'],
           ['nichtwohn', 'Nichtwohngebäude (hälftig)'],
@@ -835,9 +839,135 @@ export function heizungAnsicht(ctx) {
   );
 }
 
-function schaetzung(h) {
-  const kwh = (h.brennstoffmenge || 0) * (HEIZWERT[h.brennstoff]?.wert || 0);
-  return kwh * (EMISSIONSFAKTOR[h.brennstoff] || 0);
+/**
+ * Wärmeerzeuger einer Anlage. Eine Hybridanlage – etwa Gaskessel und
+ * Wärmepumpe – wird als mehrere Erzeuger geführt, jeder mit eigener
+ * Jahresrechnung und eigenem Wärmemengenzähler.
+ */
+function erzeugerKarte(h, heiz) {
+  const liste = h.erzeuger || [];
+  const e = heiz?.erzeugung;
+
+  const koerper = liste.length
+    ? liste.map((erz) => erzeugerBlock(erz, e)).join('') + (liste.length > 1 ? erzeugerSumme(e) : '')
+    : `<p class="fussnote">Noch kein Wärmeerzeuger erfasst. Lege für jeden Energieträger einen Eintrag an –
+       bei einer Hybridanlage also je einen für den Kessel und für die Wärmepumpe.</p>`;
+
+  return karte('Wärmeerzeuger', koerper, {
+    hilfe:
+      'Die Kosten aller Erzeuger bilden zusammen die Brennstoffkosten nach § 7 Abs. 2 HeizkostenV. ' +
+      'CO₂-Kosten nach dem CO2KostAufG fallen nur für Energieträger an, die dem Brennstoffemissionshandelsgesetz unterliegen – Strom und Holz gehören nicht dazu.',
+    rechts: `<button class="btn klein" data-aktion="erzeuger-neu">+ Wärmeerzeuger</button>`,
+  });
+}
+
+function erzeugerBlock(erz, erzeugung) {
+  const t = ENERGIETRAEGER[erz.energietraeger] || {};
+  const ziel = `erzeuger:${erz.id}`;
+  const gerechnet = erzeugung?.erzeuger.find((x) => x.id === erz.id);
+  const kwh = gerechnet?.waermeKwh ?? 0;
+  const differenz = (erz.zaehler?.standEnde || 0) - (erz.zaehler?.standAnfang || 0);
+
+  const herkunft = differenz > 0
+    ? `gemessen: ${zahl(erz.zaehler.standEnde, 0)} − ${zahl(erz.zaehler.standAnfang, 0)}`
+    : erz.waermemengeKwh > 0
+    ? 'direkt eingetragene Wärmemenge'
+    : t.arbeitszahl
+    ? `gerechnet: ${zahl(erz.menge, 0)} kWh × Arbeitszahl ${zahl(erz.arbeitszahl || 1, 1)}`
+    : `gerechnet: ${zahl(erz.menge, 1)} ${t.einheit || ''} × ${zahl(t.heizwert || 0, 2)} kWh`;
+
+  return `<div class="eintrag">
+    <div class="eintrag-kopf">
+      <h3>${esc(erz.bezeichnung || t.bezeichnung || 'Wärmeerzeuger')}</h3>
+      <span class="merkmal neutral">${esc(t.bezeichnung || erz.energietraeger)}</span>
+      <span class="merkmal ${gerechnet?.gemessen ? 'ja' : 'warn'}">${gerechnet?.gemessen ? 'gemessen' : 'gerechnet'}</span>
+      ${t.co2Pflichtig ? '<span class="merkmal neutral">CO₂-pflichtig</span>' : '<span class="merkmal ja">ohne CO₂-Kosten</span>'}
+      <div class="rechts">
+        <strong>${zahl(kwh, 0)} kWh</strong>
+        <button class="btn klein gefahr" data-aktion="erzeuger-loeschen" data-id="${esc(erz.id)}">Löschen</button>
+      </div>
+    </div>
+
+    <div class="raster">
+      ${txt('Bezeichnung', ziel, 'bezeichnung', erz.bezeichnung, { platzhalter: t.bezeichnung || 'Gas-Brennwertkessel' })}
+      ${auswahl('Energieträger', ziel, 'energietraeger', erz.energietraeger,
+        Object.entries(ENERGIETRAEGER).map(([id, w]) => [id, `${w.bezeichnung} (${zahl(w.heizwert, 2)} kWh/${w.einheit})`]))}
+      ${txt(`Bezogene Menge (${t.einheit || ''})`, ziel, 'menge', zahl(erz.menge, 1), {
+        typ: 'zahl',
+        notiz: 'aus der Jahresrechnung des Versorgers',
+      })}
+      ${txt('Kosten laut Rechnung (€)', ziel, 'kostenCent', betragText(erz.kostenCent), { typ: 'betrag' })}
+      ${txt('Lieferant', ziel, 'lieferant', erz.lieferant || '', { platzhalter: 'Stadtwerke' })}
+      ${
+        t.arbeitszahl
+          ? txt('Jahresarbeitszahl', ziel, 'arbeitszahl', zahl(erz.arbeitszahl || 0, 2), {
+              typ: 'zahl',
+              notiz: 'erzeugte Wärme je kWh Strom – nur nötig, solange kein Wärmemengenzähler vorhanden ist',
+            })
+          : ''
+      }
+    </div>
+
+    <h4 class="untertitel">Wärmemengenzähler</h4>
+    <div class="raster">
+      ${txt('Zählernummer', ziel, 'zaehler.nummer', erz.zaehler?.nummer || '', { platzhalter: 'z. B. WMZ-1' })}
+      ${txt('Zählerstand Anfang (kWh)', ziel, 'zaehler.standAnfang', zahl(erz.zaehler?.standAnfang || 0, 0), { typ: 'zahl' })}
+      ${txt('Zählerstand Ende (kWh)', ziel, 'zaehler.standEnde', zahl(erz.zaehler?.standEnde || 0, 0), { typ: 'zahl' })}
+      ${txt('oder Wärmemenge direkt (kWh)', ziel, 'waermemengeKwh', zahl(erz.waermemengeKwh || 0, 0), {
+        typ: 'zahl',
+        notiz: 'falls du nur die Differenz hast',
+      })}
+    </div>
+    <p class="fussnote">Angesetzte Wärmemenge: <strong>${zahl(kwh, 0)} kWh</strong> – ${esc(herkunft)}.
+      Gemessene Werte haben Vorrang vor der Rechnung aus Menge und Heizwert.</p>
+
+    ${
+      t.co2Pflichtig
+        ? `<h4 class="untertitel">CO₂ laut Rechnung (§ 3 CO2KostAufG)</h4>
+    <div class="raster">
+      ${txt('CO₂-Kosten (€)', ziel, 'co2KostenCent', betragText(erz.co2KostenCent), { typ: 'betrag' })}
+      ${txt('CO₂-Menge (kg)', ziel, 'co2EmissionKg', zahl(erz.co2EmissionKg, 0), {
+        typ: 'zahl',
+        notiz: `Schätzung aus der Menge: ${zahl(schaetzeErzeuger(erz), 0)} kg
+          <button class="btn schlicht klein" data-aktion="co2-schaetzen" data-id="${esc(erz.id)}">übernehmen</button>`,
+      })}
+    </div>`
+        : `<p class="fussnote">${esc(t.bezeichnung || 'Dieser Energieträger')} unterliegt nicht dem Brennstoffemissionshandelsgesetz –
+           für ihn fallen keine CO₂-Kosten nach dem CO2KostAufG an. Er senkt dadurch zugleich den Emissionskennwert des Gebäudes.</p>`
+    }
+  </div>`;
+}
+
+function erzeugerSumme(e) {
+  if (!e) return '';
+  return `<div class="tabelle-rahmen"><table class="liste">
+    <thead><tr><th>Wärmeerzeuger</th><th class="zahl">Wärmemenge</th><th class="zahl">Anteil</th><th class="zahl">Kosten</th><th class="zahl">CO₂</th></tr></thead>
+    <tbody>${e.erzeuger
+      .map(
+        (x) => `<tr>
+        <td>${esc(x.bezeichnung)}</td>
+        <td class="zahl">${zahl(x.waermeKwh, 0)} kWh</td>
+        <td class="zahl">${prozent(e.waermeGesamtKwh > 0 ? x.waermeKwh / e.waermeGesamtKwh : 0, 1)}</td>
+        <td class="zahl">${euro(x.kostenCent)}</td>
+        <td class="zahl">${x.co2Pflichtig ? `${zahl(x.co2EmissionKg, 0)} kg` : '–'}</td>
+      </tr>`
+      )
+      .join('')}</tbody>
+    <tfoot><tr>
+      <td><strong>Gesamt</strong></td>
+      <td class="zahl"><strong>${zahl(e.waermeGesamtKwh, 0)} kWh</strong></td>
+      <td class="zahl">100 %</td>
+      <td class="zahl"><strong>${euro(e.kostenGesamt)}</strong></td>
+      <td class="zahl"><strong>${zahl(e.co2EmissionGesamt, 0)} kg</strong></td>
+    </tr></tfoot>
+  </table></div>`;
+}
+
+/** Schätzt die CO₂-Menge eines Erzeugers aus der bezogenen Menge. */
+function schaetzeErzeuger(erz) {
+  const t = ENERGIETRAEGER[erz.energietraeger];
+  if (!t?.co2Pflichtig) return 0;
+  return (erz.menge || 0) * t.heizwert * (EMISSIONSFAKTOR[erz.energietraeger] || 0);
 }
 
 function heizErgebnisTabelle(heiz, ergebnis) {
@@ -881,7 +1011,7 @@ export function verbrauchAnsicht(ctx) {
   const arten = [
     ['kaltwasser', 'Kaltwasser (m³)'],
     ['warmwasser', 'Warmwasser (m³)'],
-    ['heizung', 'Heizung (Einheiten / kWh)'],
+    ['heizung', periode.heizung?.erfassungsart === 'wmz' ? 'Heizung (kWh)' : 'Heizung (Anzeigeeinheiten)'],
   ];
 
   // Zeilen: je Einheit und – bei Mieterwechsel – je Mietverhältnis

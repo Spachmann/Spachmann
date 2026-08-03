@@ -10,7 +10,7 @@
 import { euro, zahl, prozent, summe } from '../core/money.js';
 import { dt, plusMonate, plusTage, heute, tage } from '../core/datum.js';
 import { SCHLUESSEL, SCHLUESSEL_INFO, kostenart } from '../core/katalog.js';
-import { HEIZWERT } from '../core/heizkosten.js';
+import { ENERGIETRAEGER } from '../core/heizkosten.js';
 import { esc } from './dom.js';
 
 /** Alle Mieterdokumente eines Abrechnungslaufs. */
@@ -187,7 +187,21 @@ function heizkostenAbschnitt(periode, ergebnis, e) {
   if (!zeilen.length) return '';
 
   const sum = (feld) => summe(zeilen.map((z) => z[feld]));
-  const brennstoffText = HEIZWERT[periode.heizung?.brennstoff]?.bezeichnung || periode.heizung?.brennstoff || '';
+  const erzeugung = h.erzeugung;
+  const einzeln = erzeugung?.erzeuger || [];
+  // Bei einer Hybridanlage ist die Erzeugung nur nachprüfbar, wenn jeder
+  // Erzeuger mit Menge, Wärmemenge und Kosten offen ausgewiesen wird.
+  const brennstoffZeilen = einzeln.length
+    ? einzeln
+        .map(
+          (x) => `<tr><td>Brennstoff- bzw. Energiekosten – ${esc(x.bezeichnung)} (${esc(x.traegerBezeichnung)}${
+            x.menge > 0 ? `, ${zahl(x.menge, 1)} ${esc(x.mengeneinheit)}` : ''
+          }${x.waermeKwh > 0 ? `, ${zahl(x.waermeKwh, 0)} kWh Wärme${x.gemessen ? ' gemessen' : ''}` : ''})</td><td class="z">${euro(
+            x.kostenCent
+          )}</td></tr>`
+        )
+        .join('')
+    : `<tr><td>Brennstoffkosten</td><td class="z">${euro(h.kostenRoh.brennstoffBrutto)}</td></tr>`;
 
   const wwZeilen = h.kostenWarmwasser > 0
     ? `
@@ -208,6 +222,8 @@ function heizkostenAbschnitt(periode, ergebnis, e) {
     : '';
 
   const kuerzung = sum('kuerzung15');
+  const istWmz = periode.heizung?.erfassungsart === 'wmz';
+  const verbrauchseinheit = istWmz ? 'kWh' : 'E';
 
   return `
   <h2>2. Heiz- und Warmwasserkosten nach der Heizkostenverordnung</h2>
@@ -217,15 +233,30 @@ function heizkostenAbschnitt(periode, ergebnis, e) {
       <tr><th>Gesamtkosten der Wärmeversorgung</th><th class="z">Betrag</th></tr>
     </thead>
     <tbody>
-      <tr><td>Brennstoffkosten${brennstoffText ? ` (${esc(brennstoffText)})` : ''}</td><td class="z">${euro(h.kostenRoh.brennstoffBrutto)}</td></tr>
+      ${brennstoffZeilen}
+      ${
+        einzeln.length > 1
+          ? `<tr class="zwischensumme"><td>Summe der Wärmeerzeugung – ${zahl(erzeugung.waermeGesamtKwh, 0)} kWh</td><td class="z">${euro(
+              h.kostenRoh.brennstoffBrutto
+            )}</td></tr>`
+          : ''
+      }
       ${
         h.co2.vermieterCent > 0
-          ? `<tr><td>./. vom Vermieter zu tragender CO₂-Kostenanteil – Emissionskennwert ${zahl(
+          ? `<tr><td>./. vom Vermieter zu tragender CO₂-Kostenanteil – ${zahl(h.co2.emissionKg, 0)} kg CO₂, Emissionskennwert ${zahl(
               h.co2.kgProM2,
               1
-            )} kg CO₂/m²·a, Stufe ${h.co2.stufe.stufe}, Vermieteranteil ${zahl(h.co2.anteilVermieter * 100, 0)} % (§§ 5–7 CO2KostAufG)</td><td class="z">− ${euro(
-              h.co2.vermieterCent
-            )}</td></tr>`
+            )} kg CO₂/m²·a, Stufe ${h.co2.stufe.stufe}, Vermieteranteil ${zahl(h.co2.anteilVermieter * 100, 0)} % (§§ 5–7 CO2KostAufG)${
+              einzeln.some((x) => !x.co2Pflichtig)
+                ? `. Nicht einbezogen: ${esc(
+                    einzeln.filter((x) => !x.co2Pflichtig).map((x) => x.bezeichnung).join(', ')
+                  )} – ${
+                    einzeln.filter((x) => !x.co2Pflichtig).length > 1
+                      ? 'diese Energieträger unterliegen'
+                      : 'dieser Energieträger unterliegt'
+                  } nicht dem Brennstoffemissionshandelsgesetz.`
+                : ''
+            }</td><td class="z">− ${euro(h.co2.vermieterCent)}</td></tr>`
           : ''
       }
       ${zeileWennNichtNull('Betriebsstrom', periode.heizung?.kosten?.betriebsstrom)}
@@ -268,8 +299,8 @@ function heizkostenAbschnitt(periode, ergebnis, e) {
       <tr>
         <td>Heizung – Verbrauchskosten (${zahl(h.anteilVerbrauchHeizung * 100, 0)} % nach erfasstem Verbrauch)</td>
         <td class="z">${euro(h.toepfe.heizVerbrauchTopf)}</td>
-        <td class="z">${zahl(h.bezug.verbrauchHeizungGesamt, 1)} E</td>
-        <td class="z">${zahl(summe(zeilen.map((z) => z.verbrauchHeizung)), 1)} E</td>
+        <td class="z">${zahl(h.bezug.verbrauchHeizungGesamt, 1)} ${esc(verbrauchseinheit)}</td>
+        <td class="z">${zahl(summe(zeilen.map((z) => z.verbrauchHeizung)), 1)} ${esc(verbrauchseinheit)}</td>
         <td class="z">${euro(sum('heizVerbrauch'))}</td>
       </tr>
       ${wwZeilen}
@@ -289,7 +320,11 @@ function heizkostenAbschnitt(periode, ergebnis, e) {
     </tfoot>
   </table>
   <p class="klein" style="font-size:7.6pt;color:#444">
-    „E" bezeichnet die Anzeigeeinheiten der Heizkostenverteiler bzw. kWh bei Wärmemengenzählern.
+    ${
+      istWmz
+        ? 'Der Heizverbrauch wird in Kilowattstunden am Wärmemengenzähler der Wohnung erfasst.'
+        : '„E" bezeichnet die Anzeigeeinheiten der Heizkostenverteiler an den Heizkörpern.'
+    }
   </p>`;
 }
 
@@ -483,6 +518,15 @@ export function vermieterUebersicht(daten, periode, ergebnis) {
       ? `<h3>Heiz- und Warmwasserkosten (HeizkostenV)</h3>
   <table class="dok">
     <tbody>
+      ${(ergebnis.heizung.erzeugung?.erzeuger || [])
+        .map(
+          (x) => `<tr><td>${esc(x.bezeichnung)} – ${esc(x.traegerBezeichnung)}, ${zahl(x.waermeKwh, 0)} kWh ${
+            x.gemessen ? 'gemessen' : 'gerechnet'
+          }${x.co2Pflichtig ? `, ${zahl(x.co2EmissionKg, 0)} kg CO₂` : ', nicht CO₂-pflichtig'}</td><td class="z">${euro(
+            x.kostenCent
+          )}</td></tr>`
+        )
+        .join('')}
       <tr><td>Kosten der Wärmeversorgung insgesamt</td><td class="z">${euro(ergebnis.heizung.kostenRoh.gesamt)}</td></tr>
       ${
         ergebnis.heizung.co2.vermieterCent > 0

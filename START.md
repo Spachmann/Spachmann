@@ -88,7 +88,8 @@ Alternative über GitHub Pages samt Fallstricken: siehe
 Zum Kennenlernen: **Daten & Sicherung → Beispieldaten laden** – danach zeigen
 alle Bereiche ein vollständiges Portfolio: zwei privat gehaltene Immobilien und
 eine GbR mit zwei weiteren Objekten, mit Mieterwechsel, Heizkosten und
-CO₂-Aufteilung.
+CO₂-Aufteilung. Das dritte Objekt zeigt eine Hybridanlage aus Wärmepumpe und
+Gas-Brennwertkessel mit je eigenem Wärmemengenzähler.
 
 Für die eigene Abrechnung in dieser Reihenfolge:
 
@@ -99,7 +100,8 @@ Für die eigene Abrechnung in dieser Reihenfolge:
 4. **Mietverhältnisse** – Mieter, Zeiträume, Personen, Vorauszahlungen
 5. **Daten & Sicherung** – Abrechnungszeitraum anlegen, etwa 2024
 6. **Kosten** – jede Rechnung als Position, Kostenart aus dem Katalog wählen
-7. **Heizung & Warmwasser** – falls zentral geheizt wird
+7. **Heizung & Warmwasser** – falls zentral geheizt wird. Lege je Wärmeerzeuger
+   einen Eintrag an; eine Hybridanlage aus Gas und Wärmepumpe bekommt also zwei
 8. **Verbräuche** – Zählerstände eintragen
 9. **Rechtsprüfung** – Fehler und Warnungen abarbeiten
 10. **Dokument** – Vorschau prüfen und PDF erzeugen

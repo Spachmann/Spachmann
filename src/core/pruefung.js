@@ -11,7 +11,7 @@
 import { tage, plusMonate, ts, dt, heute, ueberschneidungTage } from './datum.js';
 import { euro, zahl, summe } from './money.js';
 import { SCHLUESSEL, HEIZ_ARTEN, kostenart } from './katalog.js';
-import { verbrauchsanteilZulaessig } from './heizkosten.js';
+import { verbrauchsanteilZulaessig, ENERGIETRAEGER } from './heizkosten.js';
 import { istUmlagefaehig } from './abrechnung.js';
 import { rechtsform } from './model.js';
 
@@ -295,6 +295,8 @@ function pruefeHeizung(daten, periode, ergebnis, add) {
     return;
   }
 
+  pruefeErzeuger(h, periode, ergebnis, add);
+
   const aH = h.anteilVerbrauchHeizung ?? 0.7;
   const aW = h.anteilVerbrauchWarmwasser ?? 0.7;
 
@@ -337,14 +339,16 @@ function pruefeHeizung(daten, periode, ergebnis, add) {
     add(FEHLER, 'Keine Heizverbräuche erfasst', 'Ohne erfasste Verbrauchswerte kann der Verbrauchsanteil nicht verteilt werden.', '§ 6 Abs. 1 HeizkostenV');
   }
 
-  const brennstoff = h.kosten?.brennstoff || 0;
-  const co2Kosten = h.co2?.kostenCent || 0;
-  if (brennstoff > 0 && co2Kosten <= 0 && ts(periode.bis) >= ts('2023-01-01') && ['erdgas', 'heizoel', 'fluessiggas', 'fernwaerme'].includes(h.brennstoff)) {
+  const co2Pflichtige = (h.erzeuger || []).filter((e) => ENERGIETRAEGER[e.energietraeger]?.co2Pflichtig);
+  const ohneCo2 = co2Pflichtige.filter((e) => (e.kostenCent || 0) > 0 && !(e.co2KostenCent > 0));
+  if (ohneCo2.length && ts(periode.bis) >= ts('2023-01-01')) {
     add(
       WARNUNG,
       'CO2-Kosten nicht aufgeteilt',
-      'Seit dem 01.01.2023 trägt der Vermieter bei Wohngebäuden je nach Emissionskennwert bis zu 95 % der CO2-Kosten. Die Brennstoffrechnung muss CO2-Menge und CO2-Kosten ausweisen; trage sie im Reiter Heizung ein.',
-      '§§ 5–7 CO2KostAufG'
+      `Seit dem 01.01.2023 trägt der Vermieter bei Wohngebäuden je nach Emissionskennwert bis zu 95 % der CO2-Kosten. Die Rechnung muss CO2-Menge und CO2-Kosten ausweisen. Ohne Angabe: ${ohneCo2
+        .map((e) => e.bezeichnung || ENERGIETRAEGER[e.energietraeger]?.bezeichnung || 'Wärmeerzeuger')
+        .join(', ')}.`,
+      '§§ 3, 5–7 CO2KostAufG'
     );
   }
   if (heiz?.co2?.stufe) {
@@ -362,6 +366,94 @@ function pruefeHeizung(daten, periode, ergebnis, add) {
     'Bei fernablesbaren Zählern müssen Mieter seit dem 01.12.2021 monatlich über ihren Verbrauch informiert werden. Fehlt die Information, kann der Mieter den Heizkostenanteil um 3 % kürzen.',
     '§ 6a, § 12 Abs. 1 Satz 2 HeizkostenV'
   );
+}
+
+/**
+ * Prüft die Wärmeerzeugung – bei einer Hybridanlage aus mehreren Erzeugern
+ * kommt es darauf an, dass ihre Wärmemengen gemessen und die CO2-Angaben dem
+ * richtigen Energieträger zugeordnet sind.
+ */
+function pruefeErzeuger(h, periode, ergebnis, add) {
+  const liste = h.erzeuger || [];
+
+  if (!liste.length) {
+    add(
+      FEHLER,
+      'Kein Wärmeerzeuger erfasst',
+      'Ohne Wärmeerzeuger fehlen die Brennstoff- bzw. Energiekosten. Lege im Reiter „Heizung & Warmwasser" mindestens einen Erzeuger an – bei einer Hybridanlage je einen für jeden Energieträger.',
+      '§ 7 Abs. 2 HeizkostenV'
+    );
+    return;
+  }
+
+  const ohneKosten = liste.filter((e) => !(e.kostenCent > 0));
+  if (ohneKosten.length) {
+    add(
+      WARNUNG,
+      'Wärmeerzeuger ohne Kosten',
+      `Für ${ohneKosten.map((e) => e.bezeichnung || 'einen Erzeuger').join(', ')} sind keine Kosten erfasst. Die Jahresrechnung des Versorgers gehört vollständig in die Abrechnung.`,
+      '§ 7 Abs. 2 HeizkostenV'
+    );
+  }
+
+  // Strom unterliegt nicht dem BEHG – für ihn fallen keine CO2-Kosten nach dem
+  // CO2KostAufG an. Eingetragene Beträge blieben unberücksichtigt.
+  const falscheCo2 = liste.filter(
+    (e) => !ENERGIETRAEGER[e.energietraeger]?.co2Pflichtig && ((e.co2KostenCent || 0) > 0 || (e.co2EmissionKg || 0) > 0)
+  );
+  if (falscheCo2.length) {
+    add(
+      WARNUNG,
+      'CO2-Kosten bei nicht CO2-pflichtigem Energieträger',
+      `Für ${falscheCo2
+        .map((e) => e.bezeichnung || 'einen Erzeuger')
+        .join(', ')} sind CO2-Angaben erfasst. Strom und Holz unterliegen nicht dem Brennstoffemissionshandelsgesetz; das CO2KostAufG gilt für sie nicht. Die Angaben bleiben in der Abrechnung unberücksichtigt.`,
+      '§ 2 Abs. 1 CO2KostAufG, § 2 BEHG'
+    );
+  }
+
+  const erzeugung = ergebnis?.heizung?.erzeugung;
+  if (!erzeugung) return;
+
+  // Bei einer Hybridanlage entscheidet die gemessene Wärmemenge darüber, wie
+  // sich die Erzeuger zueinander verhalten – und damit auch über die Höhe des
+  // CO2-pflichtigen Anteils.
+  if (erzeugung.hybrid && !erzeugung.vollstaendigGemessen) {
+    const gerechnet = erzeugung.erzeuger.filter((e) => !e.gemessen).map((e) => e.bezeichnung);
+    add(
+      WARNUNG,
+      'Hybridanlage ohne vollständige Wärmemengenmessung',
+      `Die Wärmemenge von ${gerechnet.join(', ')} ist nicht gemessen, sondern aus Menge und Heizwert gerechnet. Bei mehreren Erzeugern bestimmt dieses Verhältnis den Warmwasseranteil und den Emissionskennwert – ein Wärmemengenzähler je Erzeuger macht die Abrechnung nachprüfbar.`,
+      '§ 9 Abs. 2 HeizkostenV'
+    );
+  }
+
+  // Ohne Arbeitszahl liefert eine Wärmepumpe scheinbar nur so viel Wärme wie
+  // sie Strom bezieht. Der Warmwasseranteil aus der Formel wird dadurch zu groß.
+  const wpOhneBasis = erzeugung.erzeuger.filter(
+    (e) => ENERGIETRAEGER[e.energietraeger]?.arbeitszahl && !e.gemessen && e.arbeitszahl <= 1
+  );
+  if (wpOhneBasis.length) {
+    add(
+      FEHLER,
+      'Wärmepumpe ohne Wärmemengenzähler und ohne Arbeitszahl',
+      `Für ${wpOhneBasis
+        .map((e) => e.bezeichnung)
+        .join(', ')} ist weder eine Wärmemenge gemessen noch eine Jahresarbeitszahl hinterlegt. Der bezogene Strom wird dann als Wärmemenge gewertet – die erzeugte Wärme wird dadurch um ein Mehrfaches zu niedrig angesetzt und der Warmwasseranteil zu hoch. Trage den Zählerstand des Wärmemengenzählers oder die Jahresarbeitszahl ein.`,
+      '§ 9 Abs. 2 HeizkostenV'
+    );
+  }
+
+  if (erzeugung.hybrid) {
+    add(
+      HINWEIS,
+      'Hybridanlage abgerechnet',
+      `Die Wärme stammt aus ${erzeugung.anzahl} Erzeugern: ${erzeugung.erzeuger
+        .map((e) => `${e.bezeichnung} ${zahl(e.waermeKwh, 0)} kWh`)
+        .join(', ')}. Ihre Kosten bilden gemeinsam die Brennstoffkosten; CO2-Kosten fallen nur für den Anteil an, der dem BEHG unterliegt.`,
+      '§ 7 Abs. 2 HeizkostenV, § 2 CO2KostAufG'
+    );
+  }
 }
 
 function pruefeErgebnis(ergebnis, add) {

@@ -119,6 +119,21 @@ Kosten bleiben beim Vermieter und werden nicht auf die übrigen Mieter verteilt.
 
 ### Heiz- und Warmwasserkosten (HeizkostenV)
 
+* **Mehrere Wärmeerzeuger je Anlage.** Eine Hybridanlage – etwa
+  Gas-Brennwertkessel und Wärmepumpe – wird als zwei Erzeuger erfasst, jeder
+  mit eigenem Energieträger, eigener Jahresrechnung und eigenem
+  Wärmemengenzähler. Ihre Kosten bilden zusammen die Brennstoffkosten nach
+  § 7 Abs. 2 HeizkostenV.
+* **Wärmemengenzähler je Erzeuger.** Erfasst wird der Zählerstand zu Beginn und
+  am Ende des Zeitraums; ersatzweise lässt sich die Wärmemenge direkt eintragen.
+  Gemessene Werte haben stets Vorrang vor der Rechnung aus Menge und Heizwert.
+  Für die Wohnungen lässt sich einstellen, ob mit Heizkostenverteilern
+  (Anzeigeeinheiten) oder Wärmemengenzählern (kWh) erfasst wird.
+* **Wärmepumpe.** Solange kein Wärmemengenzähler vorhanden ist, wird die
+  erzeugte Wärme über die Jahresarbeitszahl aus dem Strombezug gerechnet. Fehlt
+  beides, meldet die Prüfung einen Fehler: Ohne Umrechnung würde der bezogene
+  Strom als Wärmemenge gelten, die erzeugte Wärme also um ein Mehrfaches zu
+  niedrig – und der Warmwasseranteil entsprechend zu hoch.
 * 50 bis 70 % nach erfasstem Verbrauch, der Rest nach Wohnfläche
   (§ 7 Abs. 1, § 8 Abs. 1 HeizkostenV) – Werte außerhalb dieses Rahmens meldet
   die Prüfung als Fehler.
@@ -140,6 +155,15 @@ Brennstoffkosten abgezogen. Unterjährige Zeiträume werden für die Einstufung 
 ein Jahr hochgerechnet. Nichtwohngebäude werden hälftig geteilt (§ 8 Abs. 1),
 die Ausnahme des § 9 lässt den Vermieteranteil entfallen.
 
+CO₂-Kosten und CO₂-Mengen werden **je Wärmeerzeuger** aus der Rechnung erfasst.
+Einbezogen werden nur Energieträger, die dem Brennstoffemissionshandelsgesetz
+unterliegen – Erdgas, Heizöl, Flüssiggas und Fernwärme. Wärmepumpen- und
+Heizstrom sowie Holzpellets fallen nicht darunter; für sie entstehen keine
+CO₂-Kosten nach dem CO2KostAufG. Bei einer Hybridanlage senkt der
+Wärmepumpenanteil daher zugleich den Emissionskennwert des Gebäudes und damit
+den Vermieteranteil. Trägt man beim Strom dennoch CO₂-Beträge ein, bleiben sie
+unberücksichtigt und die Prüfung weist darauf hin.
+
 ### § 35a EStG
 
 Lohn-, Maschinen- und Fahrtkostenanteile lassen sich je Position als
@@ -160,7 +184,10 @@ Der Reiter **Rechtsprüfung** prüft unter anderem:
 | Hauswartkosten um Instandhaltungsanteil bereinigt | § 2 Nr. 14 BetrKV |
 | Verbrauchsanteil Heizung/Warmwasser zwischen 50 und 70 % | §§ 7, 8 HeizkostenV |
 | Warmwasseranteil bei verbundener Anlage ermittelt | § 9 Abs. 2 HeizkostenV |
-| CO₂-Kosten aufgeteilt | §§ 5–7 CO2KostAufG |
+| Mindestens ein Wärmeerzeuger mit Kosten erfasst | § 7 Abs. 2 HeizkostenV |
+| Wärmemenge jedes Erzeugers einer Hybridanlage gemessen | § 9 Abs. 2 HeizkostenV |
+| Wärmepumpe mit Zähler oder Jahresarbeitszahl hinterlegt | § 9 Abs. 2 HeizkostenV |
+| CO₂-Kosten aufgeteilt, und zwar nur für BEHG-Energieträger | §§ 3, 5–7 CO2KostAufG, § 2 BEHG |
 | Zwischenablesung bei Nutzerwechsel | § 9b HeizkostenV |
 | Vollständigkeit von Wohnflächen, Vorauszahlungen, Anschriften | § 556a BGB, § 259 BGB |
 
@@ -212,7 +239,8 @@ Rechtsprüfung → Dokument.
 Über **Daten & Sicherung → Beispieldaten laden** lässt sich ein vollständiges
 Beispiel-Portfolio laden: zwei privat gehaltene Immobilien und eine GbR mit
 zwei weiteren Objekten, darunter Mieterwechsel, Leerstand, Heizkosten und
-CO₂-Aufteilung.
+CO₂-Aufteilung. Objekt 3 der GbR führt eine Hybridanlage aus Wärmepumpe und
+Gas-Brennwertkessel mit je eigenem Wärmemengenzähler.
 
 **Sicherungen** regelmäßig anlegen: Die Daten liegen im lokalen Speicher des
 Browsers. Werden Safari-Daten gelöscht oder das Gerät zurückgesetzt, sind sie
@@ -256,7 +284,7 @@ Fließkomma-Rundungsfehler in die Abrechnung geraten.
 ## Entwicklung
 
 ```bash
-npm test                        # Rechenkern (62 Tests, keine Abhängigkeiten)
+npm test                        # Rechenkern (76 Tests, keine Abhängigkeiten)
 node tools/oberflaeche-pruefen.js   # alle Ansichten im Browser laden
 node tools/icons-erzeugen.js        # Icons neu rendern
 ```

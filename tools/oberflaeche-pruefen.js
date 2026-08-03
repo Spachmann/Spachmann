@@ -35,9 +35,13 @@ const screenshotIndex = process.argv.indexOf('--screenshots');
 const screenshotDir = screenshotIndex > -1 ? process.argv[screenshotIndex + 1] : null;
 if (screenshotDir) mkdirSync(screenshotDir, { recursive: true });
 
+// Jede Ansicht einmal am Standardobjekt; zusätzlich die Heizungsansicht und
+// das Dokument am Objekt o3, das eine Hybridanlage aus Wärmepumpe und
+// Gaskessel führt.
 const ANSICHTEN = [
   'start', 'kosten', 'heizung', 'verbrauch', 'pruefung',
   'abrechnung', 'vermieter', 'objekte', 'einheiten', 'mieter', 'daten',
+  'heizung@o3', 'abrechnung@o3', 'pruefung@o3',
 ];
 
 const pruefDatei = join(WURZEL, 'pruefseite.html');
@@ -48,12 +52,13 @@ await new Promise((r) => setTimeout(r, 800));
 
 let fehlerhaft = false;
 try {
-  for (const ansicht of ANSICHTEN) {
-    const ergebnis = pruefeAnsicht(ansicht);
-    if (ergebnis.ok) console.log(`✓ ${ansicht.padEnd(12)} ${ergebnis.info}`);
+  for (const eintrag of ANSICHTEN) {
+    const [ansicht, objekt = ''] = eintrag.split('@');
+    const ergebnis = pruefeAnsicht(ansicht, objekt);
+    if (ergebnis.ok) console.log(`✓ ${eintrag.padEnd(14)} ${ergebnis.info}`);
     else {
       fehlerhaft = true;
-      console.error(`✗ ${ansicht.padEnd(12)} ${ergebnis.info}`);
+      console.error(`✗ ${eintrag.padEnd(14)} ${ergebnis.info}`);
     }
   }
 } finally {
@@ -65,10 +70,10 @@ try {
 console.log(fehlerhaft ? '\nEs sind Fehler aufgetreten.' : '\nAlle Ansichten laden fehlerfrei.');
 process.exit(fehlerhaft ? 1 : 0);
 
-function pruefeAnsicht(ansicht) {
-  writeFileSync(pruefDatei, pruefseite(ansicht));
+function pruefeAnsicht(ansicht, objekt = '') {
+  writeFileSync(pruefDatei, pruefseite(ansicht, objekt));
 
-  const profil = join(profilBasis, ansicht);
+  const profil = join(profilBasis, `${ansicht}${objekt ? `-${objekt}` : ''}`);
   const argumente = [
     '--headless',
     '--no-sandbox',
@@ -96,7 +101,7 @@ function pruefeAnsicht(ansicht) {
     try {
       execFileSync(
         CHROMIUM,
-        [...argumente, `--screenshot=${join(screenshotDir, `${ansicht}.png`)}`, `${BASIS}/pruefseite.html`],
+        [...argumente, `--screenshot=${join(screenshotDir, `${ansicht}${objekt ? `-${objekt}` : ""}.png`)}`, `${BASIS}/pruefseite.html`],
         { stdio: 'ignore', timeout: 40000 }
       );
     } catch {
@@ -131,9 +136,9 @@ function entschluessle(text) {
     .replace(/&amp;/g, '&');
 }
 
-function pruefseite(ansicht) {
+function pruefseite(ansicht, objekt = '') {
   return `<!doctype html>
-<html lang="de"><head><meta charset="utf-8"><title>Prüfung ${ansicht}</title>
+<html lang="de"><head><meta charset="utf-8"><title>Prüfung ${ansicht}${objekt ? ` (${objekt})` : ''}</title>
 <style>html,body{margin:0;background:#fff}iframe{border:0;width:1180px;height:1500px;display:block}
 pre{position:fixed;left:-9999px}</style></head>
 <body>
@@ -152,6 +157,8 @@ try {
   const modell = await import('${BASIS}/src/core/model.js');
   localStorage.setItem('nebenkosten.daten.v1', JSON.stringify(modell.demodaten()));
   localStorage.removeItem('nebenkosten.auswahl.v1');
+  if ('${objekt}') localStorage.setItem('nebenkosten.objekt.v1', '${objekt}');
+  else localStorage.removeItem('nebenkosten.objekt.v1');
 
   const rahmen = document.getElementById('rahmen');
   await new Promise((fertig, scheitern) => {
