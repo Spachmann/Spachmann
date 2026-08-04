@@ -1197,6 +1197,48 @@ export function abrechnungAnsicht(ctx) {
 
 /* ------------------------------------------------------------------- Daten */
 
+/**
+ * Erklärt, wie die Sicherung auf dem jeweiligen Gerät gespeichert wird.
+ *
+ * Safari kennt keinen Speicherdialog: Auf iPhone und iPad führt der Weg zu
+ * einem Ordner ausschließlich über das Teilen-Menü. Das setzt allerdings einen
+ * sicheren Kontext voraus – über eine http-Adresse im WLAN fehlt es, und dann
+ * bleibt nur der Umweg über die Anzeige.
+ */
+function sicherungshinweis(umgebung = {}) {
+  if (umgebung.bevorzugtTeilen && !umgebung.teilenMoeglich) {
+    return meldung(
+      'warnung',
+      'Speicherort lässt sich hier nicht wählen',
+      (umgebung.sicher
+        ? 'Dieser Browser bietet kein Teilen-Menü an, und einen Speicherdialog kennt Safari nicht. '
+        : 'Die Seite läuft über eine unverschlüsselte Adresse (<code>http://…</code>), etwa die WLAN-Adresse ' +
+          'des Rechners. Das Teilen-Menü gibt es nur über <code>https://</code> – auf einer festen Web-Adresse ' +
+          'funktioniert das Speichern also. ') +
+        'Solange hilft <strong>Sicherung anzeigen</strong>: Das öffnet die Daten in einem neuen Tab, von wo du ' +
+        'sie über das Teilen-Symbol von Safari sichern oder als Text markieren und kopieren kannst.'
+    );
+  }
+
+  if (umgebung.bevorzugtTeilen) {
+    return meldung(
+      'hinweis',
+      'Auf dem iPad: Speicherort im Teilen-Menü wählen',
+      'Nach dem Tippen auf <strong>Sicherung speichern</strong> öffnet iOS das Teilen-Menü. Dort ' +
+        '<strong>„In Dateien sichern"</strong> wählen und den Ordner bestimmen – etwa iCloud Drive oder ' +
+        '„Auf meinem iPad". Einen eigenen Speicherdialog wie am Rechner gibt es in Safari nicht; der Weg ' +
+        'führt immer über das Teilen-Menü.'
+    );
+  }
+
+  return meldung(
+    'hinweis',
+    'Speicherort',
+    'Die Datei landet im Download-Ordner des Browsers. Wo genau, stellst du in den Browser-Einstellungen ein – ' +
+      'viele Browser fragen auf Wunsch bei jedem Download nach dem Ordner.'
+  );
+}
+
 export function datenAnsicht(ctx) {
   const { daten, bestand, zeitraeume } = ctx;
   return (
@@ -1228,13 +1270,18 @@ export function datenAnsicht(ctx) {
     ) +
     karte(
       'Sicherung',
-      `<p>Erstelle regelmäßig eine Sicherung. Die Datei enthält alle Stammdaten, Kosten und Abrechnungen.</p>
+      `<p>Erstelle regelmäßig eine Sicherung. Die Datei enthält alle Stammdaten, Kosten und Abrechnungen
+      aller Objekte.</p>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
         <button class="btn primaer" data-aktion="export">Sicherung speichern</button>
         <label class="btn" style="cursor:pointer">Sicherung laden
           <input type="file" accept="application/json,.json" data-aktion="import" style="display:none">
         </label>
-      </div>`
+        <button class="btn schlicht" data-aktion="export-anzeigen">Sicherung anzeigen</button>
+      </div>
+      ${sicherungshinweis(ctx.umgebung)}
+      <p class="fussnote">Zum Zurückspielen auf <strong>Sicherung laden</strong> tippen und die Datei in
+      „Dateien" auswählen.</p>`
     ) +
     karte(
       'Beispiel und Zurücksetzen',

@@ -127,8 +127,11 @@ ausdrucken kannst.
 
 ### Sicherungen anlegen
 
-**Daten & Sicherung → Sicherung speichern**, Datei in *Dateien* oder iCloud
-ablegen.
+**Daten & Sicherung → Sicherung speichern**. Auf dem iPad öffnet iOS das
+Teilen-Menü – dort **In Dateien sichern** wählen und den Ordner bestimmen,
+etwa iCloud Drive. Einen eigenen Speicherdialog gibt es in Safari nicht.
+Voraussetzung ist eine `https://`-Adresse; über die WLAN-Adresse aus Schritt 2a
+fehlt das Teilen-Menü.
 
 Der Grund, warum das zählt: Die Daten liegen im Speicher von Safari, und der
 hängt an der Adresse. Wer von der WLAN-Adresse auf eine feste Web-Adresse

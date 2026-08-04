@@ -121,8 +121,22 @@ Die Daten liegen im Speicher von Safari. Der kann beim Löschen der
 Website-Daten oder durch das System geleert werden. Es gibt keinen Server, der
 sie wiederherstellen könnte.
 
-**Daten & Sicherung → Sicherung speichern** → über *Teilen* in **Dateien** oder
-**iCloud Drive** ablegen. Über **Sicherung laden** ist alles wieder da.
+So geht es:
+
+1. **Daten & Sicherung → Sicherung speichern** antippen
+2. iOS öffnet das **Teilen-Menü**
+3. **In Dateien sichern** wählen und den Ordner bestimmen – iCloud Drive oder
+   „Auf meinem iPad"
+
+Einen Speicherdialog wie am Rechner gibt es in Safari nicht; der Weg zum
+Speicherort führt immer über das Teilen-Menü. Über **Sicherung laden** ist
+alles wieder da – dort öffnet sich die gewohnte Dateiauswahl.
+
+> **Kein Teilen-Menü?** Dann läuft die App über eine unverschlüsselte Adresse
+> (`http://…`), etwa die WLAN-Adresse eines Rechners. Über die GitHub-Pages-
+> Adresse aus Schritt 1 – die beginnt mit `https://` – funktioniert es. Als
+> Notlösung öffnet **Sicherung anzeigen** die Daten in einem neuen Tab, von wo
+> du sie über das Teilen-Symbol von Safari sichern kannst.
 
 Sinnvoll: nach jeder größeren Erfassung und immer, bevor du eine Abrechnung
 verschickst.

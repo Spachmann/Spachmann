@@ -8,6 +8,7 @@
 
 import * as store from './store.js';
 import { $, esc, melde, frage, setzePfad } from './ui/dom.js';
+import { speichereDatei, oeffneInNeuemTab, bevorzugtTeilen } from './ui/datei.js';
 import { parseBetrag, parseZahl } from './core/money.js';
 import { heute } from './core/datum.js';
 import { berechneAbrechnung } from './core/abrechnung.js';
@@ -60,7 +61,24 @@ function baueKontext() {
     }
   }
 
-  return { daten, bestand, periode, zeitraeume, ergebnis, pruefergebnis, dokumentAuswahl: zustand.dokumentAuswahl };
+  return {
+    daten, bestand, periode, zeitraeume, ergebnis, pruefergebnis,
+    dokumentAuswahl: zustand.dokumentAuswahl,
+    umgebung: umgebung(),
+  };
+}
+
+/**
+ * Was der Browser zum Speichern anbietet. Das Teilen-Menü – auf dem iPad der
+ * einzige Weg zu einem Speicherort – setzt einen sicheren Kontext voraus:
+ * über eine schlichte http-Adresse im WLAN steht es nicht zur Verfügung.
+ */
+function umgebung() {
+  return {
+    sicher: globalThis.isSecureContext !== false,
+    teilenMoeglich: typeof navigator?.share === 'function',
+    bevorzugtTeilen: bevorzugtTeilen(),
+  };
 }
 
 /* --------------------------------------------------------------- Rendern */
@@ -497,17 +515,26 @@ const aktionen = {
     melde('Alle Daten gelöscht');
   },
 
-  export() {
-    const blob = store.sicherungBlob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `nebenkosten-sicherung-${heute()}.json`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 2000);
-    melde('Sicherung erstellt');
+  async export() {
+    const name = `nebenkosten-sicherung-${heute()}.json`;
+    const ergebnis = await speichereDatei(store.sicherungBlob(), name, { titel: 'Sicherung der Nebenkostenabrechnung' });
+
+    if (ergebnis === 'geteilt') melde('Sicherung gespeichert');
+    else if (ergebnis === 'heruntergeladen') melde(`Sicherung erstellt: ${name}`);
+    else if (ergebnis === 'abgebrochen') melde('Sicherung abgebrochen');
+    else {
+      window.alert(
+        'Die Sicherung ließ sich weder teilen noch herunterladen.\n\n' +
+          'Über „Sicherung anzeigen" kannst du die Daten stattdessen in einem neuen Tab öffnen und von dort sichern.'
+      );
+    }
+  },
+
+  /** Rückfallebene: Sicherung im Browser anzeigen, statt sie zu speichern. */
+  'export-anzeigen'() {
+    if (!oeffneInNeuemTab(store.sicherungBlob())) {
+      window.alert('Der Browser hat das Öffnen eines neuen Tabs verhindert. Erlaube Pop-ups für diese Seite.');
+    }
   },
 
   async import(el) {
@@ -546,7 +573,11 @@ document.addEventListener('click', (ev) => {
   const fn = aktionen[name];
   if (fn) {
     ev.preventDefault();
-    fn(el);
+    // Manche Aktionen sind asynchron (Teilen-Menü, Dateizugriff).
+    Promise.resolve(fn(el)).catch((fehler) => {
+      console.error(`Aktion „${name}" fehlgeschlagen:`, fehler);
+      melde('Die Aktion konnte nicht ausgeführt werden');
+    });
   }
 });
 

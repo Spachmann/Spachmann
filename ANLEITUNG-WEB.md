@@ -161,8 +161,17 @@ ausdrücklich nicht für Mieter bestimmt.
 Die Daten liegen im Speicher des Browsers. Der ist an die Adresse gebunden und
 kann vom System oder beim Löschen der Safari-Daten geleert werden. Deshalb:
 
-**Daten & Sicherung → Sicherung speichern** → die JSON-Datei in *Dateien* oder
-iCloud ablegen. Über **Sicherung laden** ist sie jederzeit wieder da.
+**Daten & Sicherung → Sicherung speichern**. Auf dem iPad öffnet sich das
+**Teilen-Menü**; dort **In Dateien sichern** wählen und den Ordner bestimmen.
+Einen Speicherdialog wie am Rechner kennt Safari nicht – der Weg zum
+Speicherort führt immer über das Teilen-Menü. Über **Sicherung laden** ist die
+Datei jederzeit wieder da.
+
+Das Teilen-Menü setzt eine `https://`-Adresse voraus. Über die WLAN-Adresse aus
+Weg 2 (`http://192.168.…`) steht es nicht zur Verfügung, und Safari bietet dort
+auch keinen Download an. Zum dauerhaften Arbeiten ist Weg 3 deshalb ohnehin die
+bessere Wahl; als Notlösung öffnet **Sicherung anzeigen** die Daten in einem
+neuen Tab.
 
 Der Fall, in dem das wirklich zählt: **Adresswechsel.** Wechselst du von der
 WLAN-Adresse aus Weg 2 auf eine eigene Web-Adresse aus Weg 3, sind das für

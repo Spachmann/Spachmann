@@ -246,6 +246,14 @@ Gas-Brennwertkessel mit je eigenem Wärmemengenzähler.
 Browsers. Werden Safari-Daten gelöscht oder das Gerät zurückgesetzt, sind sie
 weg.
 
+Beim Speichern wählt die App den Weg, den das Gerät kennt: Auf iPhone und iPad
+öffnet sie das **Teilen-Menü**, weil Safari keinen Speicherdialog anbietet und
+ein Download dort zu keinem wählbaren Ordner führt – über *In Dateien sichern*
+landet die Datei im gewünschten Verzeichnis. Am Rechner bleibt es beim
+gewohnten Download. Das Teilen-Menü setzt einen sicheren Kontext voraus; über
+eine `http://`-Adresse steht es nicht zur Verfügung, worauf die App dann
+ausdrücklich hinweist und die Sicherung stattdessen zur Anzeige anbietet.
+
 ---
 
 ## Projektstruktur
@@ -270,9 +278,11 @@ src/core/                   Rechenkern, ohne DOM-Abhängigkeit
 
 src/store.js                Speicherung im localStorage
 src/ui/                     Ansichten und Dokumentgenerator
+  datei.js                  Sicherung speichern: Teilen-Menü oder Download
 src/app.js                  Navigation, Datenbindung, Aktionen
 
 tests/core.test.js          Tests des Rechenkerns
+tests/datei.test.js         Tests der Dateiablage (Teilen vs. Download)
 tools/serve.js              lokaler Server
 tools/icons-erzeugen.js     Icons aus icons/icon.svg rendern
 tools/oberflaeche-pruefen.js  Rauchtest aller Ansichten im Browser
@@ -284,7 +294,7 @@ Fließkomma-Rundungsfehler in die Abrechnung geraten.
 ## Entwicklung
 
 ```bash
-npm test                        # Rechenkern (76 Tests, keine Abhängigkeiten)
+npm test                        # Rechenkern und Dateiablage (87 Tests, keine Abhängigkeiten)
 node tools/oberflaeche-pruefen.js   # alle Ansichten im Browser laden
 node tools/icons-erzeugen.js        # Icons neu rendern
 ```
